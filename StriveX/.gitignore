@@ -1,0 +1,10 @@
+node_modules/
+dist/
+data/
+.env
+*.log
+
+# Build artifacts / stray files
+*.exe
+check_result.txt
+git_log.txt

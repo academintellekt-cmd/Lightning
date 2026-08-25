@@ -1,0 +1,16 @@
+{
+  "name": "strivex-station-gateway",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "nfc-pcsc": "^0.8.1",
+    "serialport": "^12.0.0",
+    "@serialport/parser-readline": "^12.0.0",
+    "ws": "^8.18.0"
+  }
+}

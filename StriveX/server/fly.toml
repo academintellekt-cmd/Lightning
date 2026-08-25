@@ -1,0 +1,49 @@
+# fly.toml — StriveX server (NestJS + staff UI, SQLite on a persistent volume)
+#
+# Deploy from this directory (server/), where the Dockerfile lives:
+#   fly launch --no-deploy        # once: pick an app name + region, creates the app
+#   fly volumes create strivex_data --size 1   # persistent SQLite storage
+#   fly secrets set DESK_KEY=... STATION_KEY=...  # NEVER put these in this file
+#   fly deploy
+#
+# SQLite note: better-sqlite3 is single-writer and the volume attaches to ONE
+# machine — do NOT `fly scale count` above 1 for this app.
+
+app = "strivex-server"       # change to your unique app name (or let `fly launch` set it)
+primary_region = "iad"        # change to a region near you (e.g. fra, lhr, sjc)
+
+[build]
+  dockerfile = "Dockerfile"
+
+# Non-secret config. DB_PATH matches the Dockerfile's volume; secrets (DESK_KEY,
+# STATION_KEY) go through `fly secrets set`, not here.
+[env]
+  DB_PATH = "/app/data/strivex.db"
+  SESSION_TTL_MINUTES = "60"
+
+[http_service]
+  internal_port = 3000        # the server listens on 3000 (main.ts)
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1    # set 0 to save cost (volume persists; adds cold-start latency)
+
+  [[http_service.concurrency]]
+    type = "requests"
+    soft_limit = 50
+
+  [http_service.checks]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"          # public, unauthenticated (see health.controller.ts)
+
+# Persistent SQLite storage, mounted where DB_PATH points.
+[mounts]
+  source = "strivex_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

@@ -1,0 +1,9 @@
+const{contextBridge,ipcRenderer}=require('electron');
+contextBridge.exposeInMainWorld('lightning',{
+  getConfig:()=>ipcRenderer.invoke('get-config'),
+  publishState:s=>ipcRenderer.send('state-update',s),
+  onState:cb=>ipcRenderer.on('state-update',(_e,s)=>cb(s)),
+  serial:c=>ipcRenderer.send('serial-command',c),
+  onSerialStatus:cb=>ipcRenderer.on('serial-status',(_e,s)=>cb(s)),
+  getStriveXSnapshot:()=>ipcRenderer.invoke('strivex-snapshot'),onStriveXEvent:cb=>ipcRenderer.on('strivex-event',(_e,s)=>cb(s)),onStriveXStatus:cb=>ipcRenderer.on('strivex-status',(_e,s)=>cb(s)),onStriveXLog:cb=>ipcRenderer.on('strivex-log',(_e,s)=>cb(s)),striveXFinal:x=>ipcRenderer.send('strivex-final',x),simulateStriveX:x=>ipcRenderer.send('strivex-simulate',x)
+});

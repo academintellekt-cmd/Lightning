@@ -1,0 +1,17 @@
+{
+  "name": "strivex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "StriveX monorepo — NestJS server (staff UI) + station gateway (log UI). Root launcher.",
+  "scripts": {
+    "postinstall": "npm --prefix server install && npm --prefix gateway install && node scripts/init-env.mjs",
+    "setup": "node scripts/init-env.mjs",
+    "dev": "concurrently -k -n server,gateway -c blue,green \"cross-env AUTH_DISABLED=1 npm --prefix server run start:dev\" \"npm --prefix gateway start\"",
+    "start:server": "cross-env AUTH_DISABLED=1 npm --prefix server run start:dev",
+    "start:gateway": "npm --prefix gateway start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3"
+  }
+}

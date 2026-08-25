@@ -1,0 +1,12 @@
+services:
+  server:
+    build: ./server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DESK_KEY=${DESK_KEY:?set in .env}
+      - STATION_KEY=${STATION_KEY:?set in .env}
+      - SESSION_TTL_MINUTES=${SESSION_TTL_MINUTES:-60}
