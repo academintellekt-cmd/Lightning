@@ -103,7 +103,8 @@
     durationMinutes:cfg.gameDurationSeconds/60,boost:[false,false],power:[0,0],powerVisible:true,
     playerBasic:[false,false],sequenceHard:[false,false],difficulty:'easy',
     colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,
-    variant:'fill',advanced:{},unlockHard:{catchColor:[false,false],intersection:[false,false],pong:[false,false]}};
+    variant:'fill',advanced:{},unlockHard:{catchColor:[false,false],intersection:[false,false],pong:[false,false]},
+    lobbyPlayers:[],lobbyMax:2};
   let assigned={blue:null,orange:null},pendingUid='',pendingPlayer=0;
   let sessionCardUids=[null,null],guestBasic=[false,false],guestSequenceHard=[false,false];
   const runtime={hits:[0,0],next:[cfg.modifiers?.everyHits||30,cfg.modifiers?.everyHits||30],
@@ -113,6 +114,7 @@
   const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const brand=()=>'<div class="brand">LIGHTNING</div>';
   const gatewayPrompt=()=>({ru:'Приложите браслет',en:'Scan your wristband',de:'Armband scannen',fr:'Scannez votre bracelet',zh:'请扫描手环',ja:'リストバンドをスキャン'}[lang]||'Scan your wristband');
+  const lobbyWaitPrompt=()=>({ru:'Ждём второго игрока',en:'Waiting for the second player',de:'Warten auf den zweiten Spieler',fr:'En attente du deuxième joueur',zh:'等待第二位玩家',ja:'2人目のプレイヤーを待っています'}[lang]||'Waiting for the second player');
   const language=()=>role==='control'?`<div class="language-widget ${langOpen?'open':''}">
     ${langOpen?['ru','en','de','fr','zh','ja'].map(code=>`<button data-language="${code}" class="${code===lang?'selected':''}" aria-label="${code}"><span class="flag flag-${code}"></span></button>`).join(''):''}
     <button class="lang" data-action="lang">🌐</button></div>`:'';
@@ -231,7 +233,7 @@
   function render(){
     const t=T[lang],setup=['locked','menu','assignBlue','assignOrange','scanP1','scanP2','namePlayer','modes','difficulty','variant','duration','records'];
     if(role==='player'&&setup.includes(state.phase)){app.innerHTML=`<section class="screen">${brand()}</section>`;return}
-    if(state.phase==='locked')app.innerHTML=`<section class="screen locked-screen">${brand()}<div class="subtitle">${gatewayPrompt()}</div><div class="gateway-connection">${striveX.connected?'Gateway connected':'Waiting for Gateway'}</div>${language()}</section>`;
+    if(state.phase==='locked')app.innerHTML=`<section class="screen locked-screen">${brand()}<div class="subtitle">${gatewayPrompt()}</div><div class="gateway-connection">${striveX.connected?'Gateway connected':'Waiting for Gateway'}</div>${state.lobbyPlayers.length?`<div class="lobby-status">${state.lobbyPlayers.map(p=>esc(p.name)).join(', ')} — ${lobbyWaitPrompt()} (${state.lobbyPlayers.length}/${state.lobbyMax})</div>`:''}${language()}</section>`;
     else if(state.phase==='idle')app.innerHTML=`<section class="screen touch" data-action="menu">${brand()}</section>`;
     else if(state.phase==='menu')app.innerHTML=`<section class="screen">${brand()}<div class="menu"><button class="btn" data-action="play">${t.play}</button><button class="btn orange" data-action="records">${t.records}</button></div>${language()}</section>`;
     else if(state.phase==='assignBlue'||state.phase==='assignOrange'){const enough=[...navigator.getGamepads()].filter(Boolean).length>=2,text=enough?(state.phase==='assignBlue'?t.assignBlue:t.assignOrange):t.controllerMissing;app.innerHTML=`<section class="screen">${brand()}<div class="subtitle">${text}</div><button class="btn back" data-action="back">${t.back}</button>${language()}</section>`}
@@ -294,7 +296,7 @@
     localStorage.setItem('lightning.controllers',JSON.stringify(physical));
     snapshot();return true;
   }
-  function reset(){clearTimers();engine.reset();advancedEngine.reset();state={...state,phase:gatewayMode?'locked':'idle',scores:[0,0],boost:[false,false],power:[0,0],powerVisible:true,colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,advanced:{},remainingMs:state.durationMinutes*60000};publish();serial('MODE IDLE');audio?.setGameDuck(false,0);audio?.crossfade('menu')}
+  function reset(){clearTimers();engine.reset();advancedEngine.reset();state={...state,phase:gatewayMode?'locked':'idle',scores:[0,0],boost:[false,false],power:[0,0],powerVisible:true,colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,advanced:{},remainingMs:state.durationMinutes*60000,lobbyPlayers:[]};publish();serial('MODE IDLE');audio?.setGameDuck(false,0);audio?.crossfade('menu')}
   function returnToModes(){clearTimers();engine.reset();advancedEngine.reset();state={...state,phase:'modes',scores:[0,0],boost:[false,false],power:[0,0],powerVisible:true,colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,advanced:{},remainingMs:state.durationMinutes*60000};publish();serial('MODE IDLE');audio?.setGameDuck(false,0);audio?.crossfade('menu')}
   function abortGame(){quitConfirm=false;if(gatewaySessionActive){returnToModes();snapshot();return}const external=striveXActive;if(external){lightning.striveXFinal({type:'failed',meta:{fail_reason:'cancelled',mode:state.mode}});striveXActive=false}(external?reset:returnToModes)();snapshot()}
   function sessionScore(){return sessionRounds.reduce((best,round)=>Math.max(best,Number(round.score)||0),0)}
@@ -309,7 +311,7 @@
   function startGatewaySession(event){
     const users=Array.isArray(event.users)&&event.users.length?event.users:[event.user];
     if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);return}
-    clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;
+    clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;state.lobbyPlayers=[];
     const uid=String(users[0]?.uid||''),name=users[0]?.name||users[0]?.username||'Player1',name2=users[1]?.name||users[1]?.username||cfg.offline.playerNames[1]||'Player2',profile=uid?cards()[uid]:null;sessionCardUids=[uid||null,null];state.names=[name,name2];const basic=!!profile?.basicCompleted,sequence=!!profile?.sequenceHardCompleted;state.playerBasic=[basic,basic];state.sequenceHard=[sequence,sequence];for(const mode of['catchColor','pong'])state.unlockHard[mode]=[!!profile?.hardUnlocks?.[mode],!!profile?.hardUnlocks?.[mode]];
     if(autoAssignControllers())afterControllers();else{assigned={blue:null,orange:null};state.phase='assignBlue';publish();snapshot()}
   }
@@ -318,7 +320,7 @@
     if(!autoAssignControllers()){lightning.striveXFinal({type:'error',message:'two USB controllers not connected'});striveXActive=false;reset();return}
     striveXActive=true;striveX.sessionId=sessionId;state.mode=cfg.strivex.defaultMode||'classic';state.difficulty=cfg.strivex.defaultDifficulty||'easy';state.variant=cfg.strivex.defaultVariant||'score';state.durationMinutes=Number(cfg.strivex.durationMinutes)||1;state.remainingMs=state.durationMinutes*60000;state.names=[...cfg.offline.playerNames];countdown();
   }
-  function handleStriveXEvent(event){if(event.type==='unlock')startGatewaySession(event);else if(event.type==='tick'&&gatewaySessionActive){gatewayRemainingMs=event.remainingMs;publish()}else if(event.type==='expired'){if(state.phase==='game')sessionExpirePending=true;else finishGatewaySession('timeout','paid_time_expired')}else if(event.type==='lock')finishGatewaySession('abandoned',event.reason||'gateway_lock');else if(event.type==='start')startStriveX(event.sessionId);else if(event.type==='deny'){clearTimers();striveXActive=false;striveXDeny=`StriveX: ${event.reason}`;state.phase='strivexDenied';publish();setTimeout(()=>{striveXDeny='';reset()},4000)}}
+  function handleStriveXEvent(event){if(event.type==='unlock')startGatewaySession(event);else if(event.type==='lobby'){state.lobbyPlayers=event.players||[];state.lobbyMax=event.max||2;publish()}else if(event.type==='tick'&&gatewaySessionActive){gatewayRemainingMs=event.remainingMs;publish()}else if(event.type==='expired'){if(state.phase==='game')sessionExpirePending=true;else finishGatewaySession('timeout','paid_time_expired')}else if(event.type==='lock')finishGatewaySession('abandoned',event.reason||'gateway_lock');else if(event.type==='start')startStriveX(event.sessionId);else if(event.type==='deny'){clearTimers();striveXActive=false;striveXDeny=`StriveX: ${event.reason}`;state.phase='strivexDenied';publish();setTimeout(()=>{striveXDeny='';reset()},4000)}}
   lightning.onStriveXEvent(handleStriveXEvent);lightning.onStriveXStatus(s=>{striveX={...striveX,...s};render()});lightning.onStriveXLog(item=>{if(item.event==='sent'&&item.line){striveX.outgoing=[...(striveX.outgoing||[]),item.line].slice(-20);render()}});
   lightning.getStriveXSnapshot().then(s=>{striveX={...striveX,...s};if(!gatewayMode&&s.state==='running'&&s.sessionId)startStriveX(s.sessionId);render()});
   const classicEngineModes=new Set(['classic','replacement','independent','duel']);
