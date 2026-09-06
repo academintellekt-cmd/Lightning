@@ -97,7 +97,7 @@
       intersection:['交点をつかめ','2つの光が重なるボタンを押します。'],pong:['2Dピンポン','ラケットが緑になった瞬間にサーブまたはリターンします。']})
   };
   let lang=localStorage.getItem('lightning.lang')||cfg.language||'ru',langOpen=false,quitConfirm=false;
-  let striveX={state:'disconnected',connected:false,sessionId:null,outgoing:[]},striveXActive=false,gatewaySessionActive=false,gatewayRemainingMs=0,sessionRounds=[],countdownToken=0,striveXDeny='';
+  let striveX={state:'disconnected',connected:false,sessionId:null,outgoing:[]},striveXActive=false,gatewaySessionActive=false,gatewayRemainingMs=0,sessionRounds=[],countdownToken=0,striveXDeny='',sessionExpirePending=false;
   let state={phase:gatewayMode?'locked':'idle',scores:[0,0],names:[...cfg.offline.playerNames],
     remainingMs:cfg.gameDurationSeconds*1000,mode:cfg.defaultGameMode||'classic',
     durationMinutes:cfg.gameDurationSeconds/60,boost:[false,false],power:[0,0],powerVisible:true,
@@ -282,6 +282,7 @@
     publish();if(state.phase==='namePlayer')setTimeout(()=>document.getElementById('playerName')?.focus(),50)
   }
   function autoAssignControllers(){
+    if(cfg.interfaceTestMode){assigned={blue:'test-blue',orange:'test-orange'};snapshot();return true}
     const pads=[...navigator.getGamepads()].filter(Boolean).sort((a,b)=>a.index-b.index);
     if(pads.length<2)return false;
     let saved;try{saved=JSON.parse(localStorage.getItem('lightning.controllers')||'null')}catch{}
@@ -306,8 +307,10 @@
   }
   function endSession(){if(gatewaySessionActive){finishGatewaySession('completed','player_exit');return}sessionCardUids=[null,null];guestBasic=[false,false];guestSequenceHard=[false,false];pendingUid='';pendingPlayer=0;state.names=[...cfg.offline.playerNames];state.playerBasic=[false,false];state.sequenceHard=[false,false];state.unlockHard={catchColor:[false,false],intersection:[false,false],pong:[false,false]};reset()}
   function startGatewaySession(event){
+    const users=Array.isArray(event.users)&&event.users.length?event.users:[event.user];
+    if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);return}
     clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;
-    const uid=String(event.user?.uid||''),name=event.user?.name||event.user?.username||'Player1',profile=uid?cards()[uid]:null;sessionCardUids=[uid||null,null];state.names=[name,cfg.offline.playerNames[1]||'Player2'];const basic=!!profile?.basicCompleted,sequence=!!profile?.sequenceHardCompleted;state.playerBasic=[basic,basic];state.sequenceHard=[sequence,sequence];for(const mode of['catchColor','pong'])state.unlockHard[mode]=[!!profile?.hardUnlocks?.[mode],!!profile?.hardUnlocks?.[mode]];
+    const uid=String(users[0]?.uid||''),name=users[0]?.name||users[0]?.username||'Player1',name2=users[1]?.name||users[1]?.username||cfg.offline.playerNames[1]||'Player2',profile=uid?cards()[uid]:null;sessionCardUids=[uid||null,null];state.names=[name,name2];const basic=!!profile?.basicCompleted,sequence=!!profile?.sequenceHardCompleted;state.playerBasic=[basic,basic];state.sequenceHard=[sequence,sequence];for(const mode of['catchColor','pong'])state.unlockHard[mode]=[!!profile?.hardUnlocks?.[mode],!!profile?.hardUnlocks?.[mode]];
     if(autoAssignControllers())afterControllers();else{assigned={blue:null,orange:null};state.phase='assignBlue';publish();snapshot()}
   }
   function startStriveX(sessionId){
@@ -315,9 +318,16 @@
     if(!autoAssignControllers()){lightning.striveXFinal({type:'error',message:'two USB controllers not connected'});striveXActive=false;reset();return}
     striveXActive=true;striveX.sessionId=sessionId;state.mode=cfg.strivex.defaultMode||'classic';state.difficulty=cfg.strivex.defaultDifficulty||'easy';state.variant=cfg.strivex.defaultVariant||'score';state.durationMinutes=Number(cfg.strivex.durationMinutes)||1;state.remainingMs=state.durationMinutes*60000;state.names=[...cfg.offline.playerNames];countdown();
   }
-  function handleStriveXEvent(event){if(event.type==='unlock')startGatewaySession(event);else if(event.type==='tick'&&gatewaySessionActive){gatewayRemainingMs=event.remainingMs;publish()}else if(event.type==='expired')finishGatewaySession('timeout','paid_time_expired');else if(event.type==='lock')finishGatewaySession('abandoned',event.reason||'gateway_lock');else if(event.type==='start')startStriveX(event.sessionId);else if(event.type==='deny'){clearTimers();striveXActive=false;striveXDeny=`StriveX: ${event.reason}`;state.phase='strivexDenied';publish();setTimeout(()=>{striveXDeny='';reset()},4000)}}
+  function handleStriveXEvent(event){if(event.type==='unlock')startGatewaySession(event);else if(event.type==='tick'&&gatewaySessionActive){gatewayRemainingMs=event.remainingMs;publish()}else if(event.type==='expired'){if(state.phase==='game')sessionExpirePending=true;else finishGatewaySession('timeout','paid_time_expired')}else if(event.type==='lock')finishGatewaySession('abandoned',event.reason||'gateway_lock');else if(event.type==='start')startStriveX(event.sessionId);else if(event.type==='deny'){clearTimers();striveXActive=false;striveXDeny=`StriveX: ${event.reason}`;state.phase='strivexDenied';publish();setTimeout(()=>{striveXDeny='';reset()},4000)}}
   lightning.onStriveXEvent(handleStriveXEvent);lightning.onStriveXStatus(s=>{striveX={...striveX,...s};render()});lightning.onStriveXLog(item=>{if(item.event==='sent'&&item.line){striveX.outgoing=[...(striveX.outgoing||[]),item.line].slice(-20);render()}});
   lightning.getStriveXSnapshot().then(s=>{striveX={...striveX,...s};if(!gatewayMode&&s.state==='running'&&s.sessionId)startStriveX(s.sessionId);render()});
+  const classicEngineModes=new Set(['classic','replacement','independent','duel']);
+  lightning.onTestHit?.(({player,slot})=>{
+    if(state.phase==='ready'){hit(player,slot);return}
+    if(!classicEngineModes.has(state.mode)){hit(player,slot);return}
+    const pos=[...engine.activeByPlayer[player]].sort((a,b)=>a-b)[slot];
+    if(pos!==undefined)hit(player,pos)
+  });
   function continueAfterManualName(player){
     if(player===0&&cfg.rfid?.enabled)state.phase='scanP2';
     else if(player===0){pendingPlayer=1;pendingUid='';state.phase='namePlayer'}
@@ -498,7 +508,7 @@
     for(let p=0;p<2;p++)if(sessionCardUids[p]&&db[sessionCardUids[p]])db[sessionCardUids[p]].hardUnlocks={...(db[sessionCardUids[p]].hardUnlocks||{}),[state.mode]:true};
     saveCards(db);
   }
-  function finish(cause='completed'){if(state.phase!=='game')return;const external=striveXActive,gatewayRound=gatewaySessionActive;clearTimers();runtime.boostToken[0]++;runtime.boostToken[1]++;runtime.powerToken++;state.boost=[false,false];state.power=[0,0];if(!['colorMatch','colorSequence',...advancedModes].includes(state.mode))state.scores=engine.finish().scores;else if(advancedModes.has(state.mode))state.scores=[...advancedEngine.scores];if(external){if(cause==='timeout')lightning.striveXFinal({type:'timeout'});else lightning.striveXFinal({type:'result',number:Math.max(...state.scores),meta:{scores:state.scores,winner:state.scores[0]===state.scores[1]?'draw':state.scores[0]>state.scores[1]?'blue':'orange',mode:state.mode,difficulty:state.difficulty,rounds:state.mode==='paint'?advancedEngine.paintRound:engine.round}});striveXActive=false}if(gatewayRound)addSessionRound('completed');completeBasicProfiles();completeSequenceHard();completeAdvancedHard();save();audio?.crossfade('end');setPhase('gameover');phaseTimer=setTimeout(()=>{setPhase('results');phaseTimer=setTimeout(()=>{setPhase('leaderboard');phaseTimer=setTimeout(external?reset:returnToModes,cfg.leaderboardSeconds*1000)},cfg.resultSeconds*1000)},cfg.gameOverSeconds*1000)}
+  function finish(cause='completed'){if(state.phase!=='game')return;const external=striveXActive,gatewayRound=gatewaySessionActive;clearTimers();runtime.boostToken[0]++;runtime.boostToken[1]++;runtime.powerToken++;state.boost=[false,false];state.power=[0,0];if(!['colorMatch','colorSequence',...advancedModes].includes(state.mode))state.scores=engine.finish().scores;else if(advancedModes.has(state.mode))state.scores=[...advancedEngine.scores];if(external){if(cause==='timeout')lightning.striveXFinal({type:'timeout'});else lightning.striveXFinal({type:'result',number:Math.max(...state.scores),meta:{scores:state.scores,winner:state.scores[0]===state.scores[1]?'draw':state.scores[0]>state.scores[1]?'blue':'orange',mode:state.mode,difficulty:state.difficulty,rounds:state.mode==='paint'?advancedEngine.paintRound:engine.round}});striveXActive=false}if(gatewayRound)addSessionRound('completed');completeBasicProfiles();completeSequenceHard();completeAdvancedHard();save();audio?.crossfade('end');const afterLeaderboard=external?reset:(sessionExpirePending?()=>{sessionExpirePending=false;finishGatewaySession('timeout','paid_time_expired')}:returnToModes);setPhase('gameover');phaseTimer=setTimeout(()=>{setPhase('results');phaseTimer=setTimeout(()=>{setPhase('leaderboard');phaseTimer=setTimeout(afterLeaderboard,cfg.leaderboardSeconds*1000)},cfg.resultSeconds*1000)},cfg.gameOverSeconds*1000)}
   function handleCard(uid){
     uid=uid.trim().toUpperCase();if(!uid)return;
     if((cfg.rfid.adminCardUids||[]).map(String).map(x=>x.toUpperCase()).includes(uid)){saveCards({});localStorage.setItem('lightning.rfid.lastReset',localDay(new Date()));state.phase='menu';publish();return}

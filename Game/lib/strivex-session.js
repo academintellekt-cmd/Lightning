@@ -38,7 +38,7 @@ class StrivexSession extends EventEmitter{
     this.emit('connection',{connected:true});this.send({type:'hello',game:this.game,version:this.version,protocol:this.protocol});this.send({type:'ready'});
   }
   receive(raw){let message;try{message=JSON.parse(raw)}catch{this.emit('protocol-error',new Error('invalid JSON from gateway'));return}if(message.type==='unlock')this.unlock(message);else if(message.type==='lock')this.lock(message);else this.emit('protocol-error',new Error(`unknown gateway message: ${message.type}`))}
-  unlock(message){if(this.sessionId||!message.session_id)return;this.sessionId=String(message.session_id);this.user=message.user||null;this.remainingMs=Math.max(0,Number(message.paid_seconds)||0)*1000;this.emit('unlock',{session_id:this.sessionId,user:this.user,paid_seconds:Number(message.paid_seconds)||0});this.startTimer()}
+  unlock(message){if(this.sessionId||!message.session_id)return;this.sessionId=String(message.session_id);this.user=message.user||null;this.users=Array.isArray(message.users)?message.users:(this.user?[this.user]:[]);this.remainingMs=Math.max(0,Number(message.paid_seconds)||0)*1000;this.emit('unlock',{session_id:this.sessionId,user:this.user,users:this.users,paid_seconds:Number(message.paid_seconds)||0});this.startTimer()}
   lock(message){if(!this.sessionId)return;this.clearTimer();this.remainingMs=0;this.emit('lock',{reason:String(message.reason||'gateway'),session_id:this.sessionId})}
   startTimer(){this.clearTimer();this.timer=setInterval(()=>{this.remainingMs=Math.max(0,this.remainingMs-1000);this.emit('tick',this.remainingMs);if(this.remainingMs===0){this.clearTimer();this.emit('expired',{session_id:this.sessionId})}},1000)}
   clearTimer(){if(this.timer){clearInterval(this.timer);this.timer=null}}
