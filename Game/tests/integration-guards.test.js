@@ -32,6 +32,7 @@ assert(!app.includes('data-action="skipCard"'),'no-card bypass must not be rende
 assert(app.includes("phase:gatewayMode?'lobby':'idle'"),'Gateway mode must boot into the duel lobby');
 assert(app.includes("LightningLobby.html(lobbyView())"),'lobby phase must render the duel lobby screen');
 assert(app.includes("lightning.striveXLobby({type:'start'"),'START must ask the Gateway to commit the lobby');
+assert((app.match(/lobbySelection:LobbyOptions\.defaultSelection\(/g)||[]).length>=2,'reset() must restore the default lobbySelection');
 assert(app.includes('finishGatewaySession'),'paid session must have a single finalization path');
 assert(main.includes("require('./lib/strivex-session')"),'Electron main process must load the Gateway WebSocket session module');
 console.log('Audio, serial pacing and static confirmation guards passed.');

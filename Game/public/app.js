@@ -133,7 +133,7 @@
   function clearLobbyIdle(){clearTimeout(lobbyIdleTimer);lobbyIdleTimer=null}
   function armLobbyIdle(){clearLobbyIdle();if(role!=='control'||state.phase!=='lobby'||gatewaySessionActive||!state.lobbyPlayers.length)return;
     lobbyIdleTimer=setTimeout(()=>{setLobbyOverlay({type:'idle'});lobbyIdleTimer=setTimeout(()=>{lightning.striveXLobby({type:'reset'});setLobbyOverlay(null)},10000)},30000)}
-  function onLobbyUpdate(players,max){state.lobbyPlayers=players;state.lobbyMax=max||2;lobbyStartDenied='';if(lobbyOverlay?.type==='checking')lobbyOverlay=null;if(lobbyOverlay?.type==='confirmRemove'&&!players.some(p=>p.uid===lobbyOverlay.uid))lobbyOverlay=null;armLobbyIdle();publish()}
+  function onLobbyUpdate(players,max){state.lobbyPlayers=players;state.lobbyMax=max||2;lobbyStartDenied='';if(lobbyOverlay?.type==='checking')lobbyOverlay=null;if(lobbyOverlay?.type==='confirmRemove'&&!players.some(p=>p.uid===lobbyOverlay.uid))lobbyOverlay=null;if(lobbyOverlay?.type==='idle')lobbyOverlay=null;armLobbyIdle();publish()}
   function applySelection(sel){state.mode=sel.mode;if(sel.variant)state.variant=sel.variant;state.difficulty=sel.difficulty||'easy';state.durationMinutes=sel.durationMinutes;state.remainingMs=sel.durationMinutes*60000}
   function startSelectedRound(){applySelection(state.lobbySelection);quitConfirm=false;countdown()}
   function handleLobbyClick(e){
@@ -324,11 +324,11 @@
     localStorage.setItem('lightning.controllers',JSON.stringify(physical));
     snapshot();return true;
   }
-  function reset(){clearTimers();engine.reset();advancedEngine.reset();state={...state,phase:gatewayMode?'lobby':'idle',scores:[0,0],boost:[false,false],power:[0,0],powerVisible:true,colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,advanced:{},remainingMs:state.durationMinutes*60000,lobbyPlayers:[],sessionPlayers:[]};publish();serial('MODE IDLE');audio?.setGameDuck(false,0);audio?.crossfade('menu')}
+  function reset(){clearTimers();engine.reset();advancedEngine.reset();state={...state,phase:gatewayMode?'lobby':'idle',scores:[0,0],boost:[false,false],power:[0,0],powerVisible:true,colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,advanced:{},remainingMs:state.durationMinutes*60000,lobbyPlayers:[],sessionPlayers:[],lobbySelection:LobbyOptions.defaultSelection(cfg.defaultGameMode||'classic',cfg.durationOptionsMinutes||[1,2,3])};publish();serial('MODE IDLE');audio?.setGameDuck(false,0);audio?.crossfade('menu')}
   function returnToModes(){clearTimers();engine.reset();advancedEngine.reset();state={...state,phase:gatewayMode&&gatewaySessionActive?'lobby':'modes',scores:[0,0],boost:[false,false],power:[0,0],powerVisible:true,colorStage:'',colorTarget:[],playerColorTarget:[[],[]],playerColorStage:['',''],colorInput:[[],[]],roundRemainingMs:0,advanced:{},remainingMs:state.durationMinutes*60000};publish();serial('MODE IDLE');audio?.setGameDuck(false,0);audio?.crossfade('menu')}
   function abortGame(){quitConfirm=false;if(gatewaySessionActive){returnToModes();snapshot();return}const external=striveXActive;if(external){lightning.striveXFinal({type:'failed',meta:{fail_reason:'cancelled',mode:state.mode}});striveXActive=false}(external?reset:returnToModes)();snapshot()}
   function sessionScore(){return sessionRounds.reduce((best,round)=>Math.max(best,Number(round.score)||0),0)}
-  function addSessionRound(status='completed'){sessionRounds.push({mode:state.mode,difficulty:state.difficulty,variant:state.variant,scores:[...state.scores],score:Math.max(...state.scores),status,finished_at:new Date().toISOString()})}
+  function addSessionRound(status='completed'){sessionRounds.push({mode:state.mode,difficulty:state.difficulty,variant:state.mode==='catchColor'?state.variant:null,scores:[...state.scores],score:Math.max(...state.scores),status,finished_at:new Date().toISOString()})}
   function finishGatewaySession(status='completed',reason='session_end'){
     if(!gatewaySessionActive)return;
     if(state.phase==='game'){clearTimers();if(!['colorMatch','colorSequence',...advancedModes].includes(state.mode))state.scores=engine.finish().scores;else if(advancedModes.has(state.mode))state.scores=[...advancedEngine.scores];addSessionRound(status==='timeout'?'timeout':'abandoned');save()}
@@ -338,14 +338,15 @@
   function endSession(){if(gatewaySessionActive){finishGatewaySession('completed','player_exit');return}sessionCardUids=[null,null];guestBasic=[false,false];guestSequenceHard=[false,false];pendingUid='';pendingPlayer=0;state.names=[...cfg.offline.playerNames];state.playerBasic=[false,false];state.sequenceHard=[false,false];state.unlockHard={catchColor:[false,false],intersection:[false,false],pong:[false,false]};reset()}
   function startGatewaySession(event){
     const users=Array.isArray(event.users)&&event.users.length?event.users:[event.user];
-    if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);return}
-    clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;state.lobbyPlayers=[];
+    if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);lightning.striveXFinal({type:'failed',status:'failed',number:0,meta:{reason:'not_enough_players'}});return}
+    clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;const prevAvatar=Object.fromEntries((state.lobbyPlayers||[]).map(p=>[String(p.uid),p.avatar]));state.lobbyPlayers=[];
     clearLobbyIdle();lobbyOverlay=null;lobbyStarting=false;lobbyStartDenied='';
     ensureCards(users);const db=cards();
-    state.sessionPlayers=users.slice(0,2).map((u,i)=>({uid:String(u?.uid||`P${i+1}`),name:u?.name||u?.username||cfg.offline.playerNames[i]||`Player${i+1}`,avatar:u?.avatar??null}));
+    state.sessionPlayers=users.slice(0,2).map((u,i)=>({uid:String(u?.uid||`P${i+1}`),name:u?.name||u?.username||cfg.offline.playerNames[i]||`Player${i+1}`,avatar:u?.avatar??prevAvatar[String(u?.uid)]??null}));
     sessionCardUids=state.sessionPlayers.map(p=>db[p.uid]?p.uid:null);state.names=state.sessionPlayers.map(p=>p.name);
     state.playerBasic=sessionCardUids.map(u=>!!(u&&db[u]?.basicCompleted));state.sequenceHard=sessionCardUids.map(u=>!!(u&&db[u]?.sequenceHardCompleted));
     for(const mode of['catchColor','pong'])state.unlockHard[mode]=sessionCardUids.map(u=>!!(u&&db[u]?.hardUnlocks?.[mode]));
+    const locks=LobbyOptions.profileLocks(state.sessionPlayers,db);if(!LobbyOptions.canStart(state.lobbySelection,state.sessionPlayers,2,locks).ok)state.lobbySelection=LobbyOptions.defaultSelection('classic',cfg.durationOptionsMinutes||[1,2,3]);
     if(autoAssignControllers())afterControllers();else{assigned={blue:null,orange:null};state.phase='assignBlue';publish();snapshot()}
   }
   function startStriveX(sessionId){
