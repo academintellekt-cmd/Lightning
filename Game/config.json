@@ -61,6 +61,6 @@
   "joystick":{"autoAssign":true,"swapPlayers":false},
   "joystickStick":{"enabled":true,"leftButton":13,"rightButton":14,"downButton":15,"horizontalAxis":0,"verticalAxis":1,"axisThreshold":0.55},
   "serial":{"enabled":true,"port":"auto","baudRate":115200,"commandIntervalMs":12},
-  "strivex":{"enabled":true,"transport":"websocket","wsHost":"192.168.188.170","wsPort":4200,"port":"COM10","baudRate":115200,"reconnectMs":3000,"developmentMode":false,"defaultMode":"classic","defaultDifficulty":"easy","defaultVariant":"score","durationMinutes":1},
+  "strivex":{"enabled":true,"transport":"websocket","wsHost":"192.168.188.170","wsPort":4200,"port":"COM10","baudRate":115200,"reconnectMs":3000,"developmentMode":false,"demoLobby":false,"defaultMode":"classic","defaultDifficulty":"easy","defaultVariant":"score","durationMinutes":1},
   "offline":{"enabled":false,"playerNames":["Player1","Player2"],"leaderboardSize":10}
 }
