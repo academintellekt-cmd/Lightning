@@ -261,7 +261,7 @@
   function render(){
     const t=T[lang],setup=['lobby','menu','assignBlue','assignOrange','scanP1','scanP2','namePlayer','modes','difficulty','variant','duration','records'];
     if(role==='player'&&setup.includes(state.phase)){app.innerHTML=`<section class="screen">${brand()}</section>`;return}
-    if(state.phase==='lobby')app.innerHTML=LightningLobby.html(lobbyView());
+    if(state.phase==='lobby'){const q=['.lobby-cols .lobby-col:first-child .lobby-list','.lobby-settings'],sc=q.map(x=>app.querySelector(x)?.scrollTop||0);app.innerHTML=LightningLobby.html(lobbyView());q.forEach((x,i)=>{const e=app.querySelector(x);if(e)e.scrollTop=sc[i]})}
     else if(state.phase==='idle')app.innerHTML=`<section class="screen touch" data-action="menu">${brand()}</section>`;
     else if(state.phase==='menu')app.innerHTML=`<section class="screen">${brand()}<div class="menu"><button class="btn" data-action="play">${t.play}</button><button class="btn orange" data-action="records">${t.records}</button></div>${language()}</section>`;
     else if(state.phase==='assignBlue'||state.phase==='assignOrange'){const enough=[...navigator.getGamepads()].filter(Boolean).length>=2,text=enough?(state.phase==='assignBlue'?t.assignBlue:t.assignOrange):t.controllerMissing;app.innerHTML=`<section class="screen">${brand()}<div class="subtitle">${text}</div><button class="btn back" data-action="back">${t.back}</button>${language()}</section>`}
