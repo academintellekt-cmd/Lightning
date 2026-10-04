@@ -29,7 +29,9 @@ assert.equal(config.strivex.wsPort,4200,'Lightning and Gateway must agree on Web
 assert.equal(config.offline.enabled,false,'free/offline sessions must be disabled');
 assert.equal(config.rfid.enabled,false,'RFID must be owned by StriveX Gateway, not Lightning');
 assert(!app.includes('data-action="skipCard"'),'no-card bypass must not be rendered');
-assert(app.includes("phase:gatewayMode?'locked':'idle'"),'Gateway mode must boot into the locked screen');
+assert(app.includes("phase:gatewayMode?'lobby':'idle'"),'Gateway mode must boot into the duel lobby');
+assert(app.includes("LightningLobby.html(lobbyView())"),'lobby phase must render the duel lobby screen');
+assert(app.includes("lightning.striveXLobby({type:'start'"),'START must ask the Gateway to commit the lobby');
 assert(app.includes('finishGatewaySession'),'paid session must have a single finalization path');
 assert(main.includes("require('./lib/strivex-session')"),'Electron main process must load the Gateway WebSocket session module');
 console.log('Audio, serial pacing and static confirmation guards passed.');
