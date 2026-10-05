@@ -338,7 +338,7 @@
   function endSession(){if(gatewaySessionActive){finishGatewaySession('completed','player_exit');return}sessionCardUids=[null,null];guestBasic=[false,false];guestSequenceHard=[false,false];pendingUid='';pendingPlayer=0;state.names=[...cfg.offline.playerNames];state.playerBasic=[false,false];state.sequenceHard=[false,false];state.unlockHard={catchColor:[false,false],intersection:[false,false],pong:[false,false]};reset()}
   function startGatewaySession(event){
     const users=Array.isArray(event.users)&&event.users.length?event.users:[event.user];
-    if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);lightning.striveXFinal({type:'failed',status:'failed',number:0,meta:{reason:'not_enough_players'}});return}
+    if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);lightning.striveXFinal({type:'failed',status:'failed',number:0,meta:{reason:'not_enough_players'}});lobbyStarting=false;lobbyStartDenied='';render();return}
     clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;const prevAvatar=Object.fromEntries((state.lobbyPlayers||[]).map(p=>[String(p.uid),p.avatar]));state.lobbyPlayers=[];
     clearLobbyIdle();lobbyOverlay=null;lobbyStarting=false;lobbyStartDenied='';
     ensureCards(users);const db=cards();
