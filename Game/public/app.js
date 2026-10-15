@@ -97,6 +97,7 @@
       intersection:['交点をつかめ','2つの光が重なるボタンを押します。'],pong:['2Dピンポン','ラケットが緑になった瞬間にサーブまたはリターンします。']})
   };
   let lang=localStorage.getItem('lightning.lang')||cfg.language||'ru',langOpen=false,quitConfirm=false;
+  let enterCallTimer=null,enterCallPhase=null,enterCallDone=null;const ENTER_CALL_MS=10000;
   let striveX={state:'disconnected',connected:false,sessionId:null,outgoing:[]},striveXActive=false,gatewaySessionActive=false,gatewayRemainingMs=0,sessionRounds=[],countdownToken=0,striveXDeny='',sessionExpirePending=false;
   let state={phase:gatewayMode?'lobby':'idle',scores:[0,0],names:[...cfg.offline.playerNames],
     remainingMs:cfg.gameDurationSeconds*1000,mode:cfg.defaultGameMode||'classic',
@@ -258,7 +259,11 @@
     return`<div class="touch-keyboard">${rows.map(row=>`<div>${[...row].map(k=>`<button data-key="${k}">${k}</button>`).join('')}</div>`).join('')}
       <div><button class="wide" data-key=" ">␠</button><button class="wide" data-key="backspace">⌫</button></div></div>`;
   }
-  function render(){
+  // Lava Jump call to enter: full screen for 10 s after START; closes on tap, timeout or the next phase.
+  function showEnterCall(done){if(!(role==='control')){done?.();return}clearTimeout(enterCallTimer);enterCallDone=done||null;enterCallPhase=state.phase;enterCallTimer=setTimeout(hideEnterCall,ENTER_CALL_MS);document.querySelector('[data-lobby-enter]')?.remove();document.body.insertAdjacentHTML('beforeend',LightningLobby.enterHtml(lang));document.querySelector('[data-lobby-enter]').addEventListener('click',hideEnterCall)}
+  function hideEnterCall(){if(!enterCallTimer)return;clearTimeout(enterCallTimer);enterCallTimer=null;enterCallPhase=null;document.querySelector('[data-lobby-enter]')?.remove();const done=enterCallDone;enterCallDone=null;done?.()}
+  function syncEnterCall(){if(enterCallPhase!==null&&state.phase!==enterCallPhase)hideEnterCall()}
+  function render(){syncEnterCall();
     const t=T[lang],setup=['lobby','menu','assignBlue','assignOrange','scanP1','scanP2','namePlayer','modes','difficulty','variant','duration','records'];
     if(role==='player'&&setup.includes(state.phase)){app.innerHTML=`<section class="screen">${brand()}</section>`;return}
     if(state.phase==='lobby'){const q=['.lobby-cols .lobby-col:first-child .lobby-list','.lobby-settings'],sc=q.map(x=>app.querySelector(x)?.scrollTop||0);app.innerHTML=LightningLobby.html(lobbyView());q.forEach((x,i)=>{const e=app.querySelector(x);if(e)e.scrollTop=sc[i]})}
@@ -279,7 +284,7 @@
     else if(state.phase==='gameover')app.innerHTML=`<section class="screen">${brand()}<div class="overlay">${t.over}</div>${language()}</section>`;
     else if(state.phase==='strivexDenied')app.innerHTML=`<section class="screen">${brand()}<div class="overlay">${esc(striveXDeny)}</div>${language()}</section>`;
     else if(state.phase==='results'){const w=state.scores[0]===state.scores[1]?t.draw:`${t.winner}: ${esc(state.names[state.scores[0]>state.scores[1]?0:1])}`;app.innerHTML=`<section class="screen"><h1>${t.results}</h1><div class="results"><div class="result">${esc(state.names[0])}<br><b>${state.scores[0]}</b></div><div class="result p2">${esc(state.names[1])}<br><b>${state.scores[1]}</b></div></div><h1>${w}</h1>${language()}</section>`}
-    if(role==='control'&&(cfg.strivex?.enabled||cfg.strivex?.developmentMode)){const log=(striveX.outgoing||[]).slice(-6);app.insertAdjacentHTML('beforeend',`<aside class="strivex-panel ${striveX.connected?'online':'offline'}"><b>StriveX: ${esc(striveX.state)}</b><small>${esc(striveX.sessionId||striveX.lastSessionId||'no session')}</small>${striveXDeny?`<strong>${esc(striveXDeny)}</strong>`:''}${cfg.strivex.developmentMode?`<button data-strivex="start">Simulate START</button><button data-strivex="result">RESULT</button><button data-strivex="failed">FAILED</button><button data-strivex="timeout">TIMEOUT</button><pre>${esc(log.join('\n'))}</pre>`:''}</aside>`)}
+    if(role==='control'&&cfg.strivex?.developmentMode){const log=(striveX.outgoing||[]).slice(-6);app.insertAdjacentHTML('beforeend',`<aside class="strivex-panel ${striveX.connected?'online':'offline'}"><b>StriveX: ${esc(striveX.state)}</b><small>${esc(striveX.sessionId||striveX.lastSessionId||'no session')}</small>${striveXDeny?`<strong>${esc(striveXDeny)}</strong>`:''}${cfg.strivex.developmentMode?`<button data-strivex="start">Simulate START</button><button data-strivex="result">RESULT</button><button data-strivex="failed">FAILED</button><button data-strivex="timeout">TIMEOUT</button><pre>${esc(log.join('\n'))}</pre>`:''}</aside>`)}
   }
   function syncSessionTimeout(){
     clearTimeout(sessionIdleTimer);
@@ -347,7 +352,7 @@
     state.playerBasic=sessionCardUids.map(u=>!!(u&&db[u]?.basicCompleted));state.sequenceHard=sessionCardUids.map(u=>!!(u&&db[u]?.sequenceHardCompleted));
     for(const mode of['catchColor','pong'])state.unlockHard[mode]=sessionCardUids.map(u=>!!(u&&db[u]?.hardUnlocks?.[mode]));
     const locks=LobbyOptions.profileLocks(state.sessionPlayers,db);if(!LobbyOptions.canStart(state.lobbySelection,state.sessionPlayers,2,locks).ok)state.lobbySelection=LobbyOptions.defaultSelection('classic',cfg.durationOptionsMinutes||[1,2,3]);
-    if(autoAssignControllers())afterControllers();else{assigned={blue:null,orange:null};state.phase='assignBlue';publish();snapshot()}
+    if(autoAssignControllers())showEnterCall(()=>{if(gatewaySessionActive)afterControllers()});else{assigned={blue:null,orange:null};state.phase='assignBlue';publish();snapshot();showEnterCall()}
   }
   function startStriveX(sessionId){
     clearTimers();quitConfirm=false;striveXDeny='';engine.reset();advancedEngine.reset();
