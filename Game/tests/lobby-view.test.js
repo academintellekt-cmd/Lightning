@@ -53,4 +53,19 @@ assert(html.includes('Нет связи с Gateway'));
 
 for(const lang of['ru','en','de','fr','zh','ja']){const s=L.strings(lang);for(const key of Object.keys(L.strings('en')))assert(s[key],`${lang}.${key}`)}
 assert.strictEqual(L.strings('xx').start,L.strings('en').start,'unknown language falls back to en');
+assert.strictEqual(L.enterHtml('ru'),'<div class="lobby-enter" data-lobby-enter role="status"><b>Входите</b></div>','enter call markup');
+assert(L.enterHtml('en').includes('Come in'),'enter call is localized');
+html=L.html(view({overlay:{type:'denied',reason:'unregistered'}}));
+assert(html.includes('Данный браслет не найден в системе. Обратитесь к администратору.'),'Lava Jump wording for an unknown wristband');
+html=L.html(view({session:true}));
+assert(html.includes('data-action="records"')&&html.includes('Рекорды'),'session shows Records next to Finish');
+html=L.html(view({overlay:{type:'rules',mode:'duel'}}));
+assert(html.includes('<ol><li>Загорается одна общая кнопка.</li>'),'rules window lists numbered steps');
+assert(!L.html(view({lang:'de',overlay:{type:'rules',mode:'duel'}})).includes('<ol>'),'languages without steps keep the one-line rules');
+{const app=require('fs').readFileSync(require('path').join(__dirname,'..','public','app.js'),'utf8');
+assert(app.includes('if(autoAssignControllers())showEnterCall(()=>{if(gatewaySessionActive)afterControllers()})'),'a started session shows the enter call');
+assert(app.includes('syncEnterCall();'),'render closes the enter call once the phase moves on');
+assert(app.includes('ENTER_CALL_MS=10000')&&app.includes('setTimeout(hideEnterCall,ENTER_CALL_MS)'),'enter call lasts 10 s');
+}
+{const app=require('fs').readFileSync(require('path').join(__dirname,'..','public','app.js'),'utf8');assert(app.includes("if(role==='control'&&cfg.strivex?.developmentMode){const log="),'StriveX status box only in development mode')}
 console.log('lobby-view tests passed');
