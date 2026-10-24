@@ -247,13 +247,6 @@
     if(state.mode==='colorSequence'||!state.colorTarget?.length||state.colorStage==='answer'&&state.mode==='colorMatch')return'';
     return`<div class="color-pattern ${state.colorStage==='fade'?'fade':''}">${state.colorTarget.map(x=>`<i style="--c:${colorHex[x.color]||colorHex.off}"><b>${x.position}</b></i>`).join('')}</div>`;
   }
-  function privateColorPatterns(){
-    if(state.mode!=='colorMatch')return colorPattern();
-    return`<div class="private-patterns">${[0,1].map(player=>`<div class="private-pattern p${player+1}">
-      <small>${esc(state.names[player])}</small>
-      ${(state.playerColorStage[player]==='show'||state.playerColorStage[player]==='fade')?`<div class="color-pattern ${state.playerColorStage[player]==='fade'?'fade':''}">${(state.playerColorTarget[player]||[]).map(x=>`<i style="--c:${colorHex[x.color]||colorHex.off}"><b>${x.position}</b></i>`).join('')}</div>`:`<strong>${T[lang].confirm}</strong>`}
-    </div>`).join('')}</div>`;
-  }
   function touchKeyboard(){
     const rows=lang==='ru'?['ЙЦУКЕНГШЩЗХ','ФЫВАПРОЛДЖЭ','ЯЧСМИТЬБЮ']:['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'];
     return`<div class="touch-keyboard">${rows.map(row=>`<div>${[...row].map(k=>`<button data-key="${k}">${k}</button>`).join('')}</div>`).join('')}
@@ -401,7 +394,6 @@
   async function countdown(){accept=false;const token=++countdownToken;state.phase='countdown';audio?.effect('startCountdown');for(let n=cfg.countdownSeconds;n;n--){if(token!==countdownToken)return;state.countdown=n;publish();serial(`COUNTDOWN ${n}`);await new Promise(r=>setTimeout(r,1000))}if(token===countdownToken)startGame()}
   const colorDigits=array=>(array||Array(15).fill('off')).map(c=>COLOR_CODES[c]||0).join('');
   function sendPlayerColors(player,array){serial(`COLORS ${player===0?'B':'O'} ${colorDigits(array)}`)}
-  function sendBothColors(blue,orange){serial(`COLORS2 ${colorDigits(blue)} ${colorDigits(orange)}`)}
   function sendTargetColors(items){const digits=colorEngine.colorDigits(items);serial(`COLORS2 ${digits} ${digits}`)}
   function addColorTimer(fn,ms){const id=setTimeout(fn,ms);colorTimers.push(id);return id}
   function beginMatchPlayer(player){
