@@ -109,7 +109,7 @@
     lobbySelection:LobbyOptions.defaultSelection(cfg.defaultGameMode||'classic',cfg.durationOptionsMinutes||[1,2,3])};
   let lobbyOverlay=null,lobbyStarting=false,lobbyStartDenied='',lobbyOverlayTimer=null,lobbyIdleTimer=null,demoBuffer='';
   let assigned={blue:null,orange:null},pendingUid='',pendingPlayer=0;
-  let sessionCardUids=[null,null],guestBasic=[false,false],guestSequenceHard=[false,false];
+  let sessionCardUids=[null,null],gatewayUids=[],guestBasic=[false,false],guestSequenceHard=[false,false];
   const runtime={hits:[0,0],next:[cfg.modifiers?.everyHits||30,cfg.modifiers?.everyHits||30],
     boostToken:[0,0],queued:false,powerToken:0,lastEndSecond:0};
   const audio=role==='control'?new LightningAudio(cfg.audio||{}):null;
@@ -337,8 +337,8 @@
   function finishGatewaySession(status='completed',reason='session_end'){
     if(!gatewaySessionActive)return;
     if(state.phase==='game'){clearTimers();if(!['colorMatch','colorSequence',...advancedModes].includes(state.mode))state.scores=engine.finish().scores;else if(advancedModes.has(state.mode))state.scores=[...advancedEngine.scores];addSessionRound(status==='timeout'?'timeout':'abandoned');save()}
-    const score=sessionScore(),meta={rounds:sessionRounds,best:score,total:sessionRounds.reduce((sum,r)=>sum+(Number(r.score)||0),0),player:{uid:sessionCardUids[0],name:state.names[0]},reason};
-    lightning.striveXFinal({type:'result',number:score,status,meta});gatewaySessionActive=false;gatewayRemainingMs=0;sessionRounds=[];sessionCardUids=[null,null];state.names=[...cfg.offline.playerNames];reset();
+    const score=sessionScore(),meta={rounds:sessionRounds,best:score,total:sessionRounds.reduce((sum,r)=>sum+(Number(r.score)||0),0),player:{uid:sessionCardUids[0],name:state.names[0]},points:SessionPoints.bestPoints(gatewayUids,sessionRounds),reason};
+    lightning.striveXFinal({type:'result',number:score,status,meta});gatewaySessionActive=false;gatewayRemainingMs=0;sessionRounds=[];gatewayUids=[];sessionCardUids=[null,null];state.names=[...cfg.offline.playerNames];reset();
   }
   function endSession(){if(gatewaySessionActive){finishGatewaySession('completed','player_exit');return}sessionCardUids=[null,null];guestBasic=[false,false];guestSequenceHard=[false,false];pendingUid='';pendingPlayer=0;state.names=[...cfg.offline.playerNames];state.playerBasic=[false,false];state.sequenceHard=[false,false];state.unlockHard={catchColor:[false,false],intersection:[false,false],pong:[false,false]};reset()}
   function startGatewaySession(event){
@@ -346,7 +346,7 @@
     if(users.filter(Boolean).length<2){console.warn('startGatewaySession: fewer than 2 players, ignoring unlock',event);lightning.striveXFinal({type:'failed',status:'failed',number:0,meta:{reason:'not_enough_players'}});lobbyStarting=false;lobbyStartDenied='';render();return}
     clearTimers();quitConfirm=false;engine.reset();advancedEngine.reset();gatewaySessionActive=true;gatewayRemainingMs=Math.max(0,Number(event.paid_seconds)||0)*1000;sessionRounds=[];striveX.sessionId=event.session_id;const prevAvatar=Object.fromEntries((state.lobbyPlayers||[]).map(p=>[String(p.uid),p.avatar]));state.lobbyPlayers=[];
     clearLobbyIdle();lobbyOverlay=null;lobbyStarting=false;lobbyStartDenied='';
-    ensureCards(users);const db=cards();
+    ensureCards(users);gatewayUids=users.slice(0,2).map(u=>u?.uid?String(u.uid):null);const db=cards();
     state.sessionPlayers=users.slice(0,2).map((u,i)=>({uid:String(u?.uid||`P${i+1}`),name:u?.name||u?.username||cfg.offline.playerNames[i]||`Player${i+1}`,avatar:u?.avatar??prevAvatar[String(u?.uid)]??null}));
     sessionCardUids=state.sessionPlayers.map(p=>db[p.uid]?p.uid:null);state.names=state.sessionPlayers.map(p=>p.name);
     state.playerBasic=sessionCardUids.map(u=>!!(u&&db[u]?.basicCompleted));state.sequenceHard=sessionCardUids.map(u=>!!(u&&db[u]?.sequenceHardCompleted));
