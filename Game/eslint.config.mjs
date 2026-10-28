@@ -13,6 +13,7 @@ const pageGlobals = {
   CATCH_COLORS: 'readonly',
   LightningAudio: 'readonly',
   LobbyOptions: 'readonly',
+  SessionRecords: 'readonly',
   LightningLobby: 'readonly',
   SessionPoints: 'readonly',
 };
