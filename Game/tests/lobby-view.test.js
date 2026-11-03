@@ -68,4 +68,25 @@ assert(app.includes('syncEnterCall();'),'render closes the enter call once the p
 assert(app.includes('ENTER_CALL_MS=10000')&&app.includes('setTimeout(hideEnterCall,ENTER_CALL_MS)'),'enter call lasts 10 s');
 }
 {const app=require('fs').readFileSync(require('path').join(__dirname,'..','public','app.js'),'utf8');assert(app.includes("if(role==='control'&&cfg.strivex?.developmentMode){const log="),'StriveX status box only in development mode')}
+// Lobby profile window.
+{
+  const duo=[{uid:'A',name:'Алекс',avatar:'X1'},{uid:'B',name:'Мира',avatar:'X2'}];
+  const names={modes:{classic:'Раунды','catchColor:fill':'Поймай свой цвет · Заполнить поле'},difficulties:{veryHard:'Очень сложный'},minute:'мин'};
+  let h=L.html(view({players:duo}));
+  assert(h.includes('data-lobby-profile="A"')&&h.includes('data-lobby-profile="B"'),'player cards open the profile');
+  const data={username:'Алекс',level:4,xp_in_level:90,needed_xp:600,time_started:true,remaining_seconds:61,records:[{mode_id:'catchColor:fill',level_id:'veryHard:3',best_score:31},{mode_id:'classic',level_id:'-:1',best_score:52}],recent:[]};
+  h=L.html(view({players:duo,names,overlay:{type:'profile',uid:'A',state:'ready',data}}));
+  assert(h.includes('Уровень 4')&&h.includes('1:01'),'level and time');
+  assert(h.includes('Поймай свой цвет · Заполнить поле · Очень сложный · 3 мин')&&h.includes('Раунды · 1 мин'),'records name mode, variant, difficulty and time');
+  assert(h.includes('data-lobby-profile-remove="A"'),'remove from round');
+  const app=require('fs').readFileSync(require('path').join(__dirname,'..','public','app.js'),'utf8');
+  const main=require('fs').readFileSync(require('path').join(__dirname,'..','main.js'),'utf8');
+  const control=require('fs').readFileSync(require('path').join(__dirname,'..','public','control.html'),'utf8');
+  assert(control.includes('../lib/session-records.js'),'control page loads session-records');
+  assert(app.includes("records:SessionRecords.bestRecords(gatewayUids,sessionRounds,'lightning',"),'session end reports XP records');
+  assert(app.includes('durationMinutes:state.durationMinutes,scores:[...state.scores],'),'each round remembers its time');
+  assert(app.includes("setLobbyOverlay({type:'profile',uid:profile,state:'loading'},30000);lightning.striveXLobby({type:'profile',uid:profile})"),'tapping a card asks for the profile');
+  assert(app.indexOf('data-lobby-profile-remove')<app.indexOf("if(at('data-lobby-dismiss')&&"),'remove inside the profile window is handled before its backdrop closes it');
+  assert(main.includes("striveXSession.on('profile',payload=>emit('strivex-event',{type:'profile',...payload}))")&&main.includes("x?.type==='profile'&&typeof striveXSession.requestProfile==='function'"),'main forwards profile requests and answers');
+}
 console.log('lobby-view tests passed');
