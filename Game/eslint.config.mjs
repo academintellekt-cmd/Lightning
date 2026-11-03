@@ -13,13 +13,15 @@ const pageGlobals = {
   CATCH_COLORS: 'readonly',
   LightningAudio: 'readonly',
   LobbyOptions: 'readonly',
+  StrivexCabinet: 'readonly',
   SessionRecords: 'readonly',
   LightningLobby: 'readonly',
   SessionPoints: 'readonly',
 };
 
 export default defineConfig([
-  { ignores: ['dist/', 'node_modules/', 'arduino/'] },
+  // public/vendor/ is the customer's avatar renderer, kept byte-for-byte.
+  { ignores: ['dist/', 'node_modules/', 'arduino/', 'public/vendor/'] },
   js.configs.recommended,
   { rules: { 'no-empty': ['error', { allowEmptyCatch: true }] } },
   {
