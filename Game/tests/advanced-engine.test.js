@@ -11,9 +11,9 @@ const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0x100000000
   assert(game.paintOwners[0] === 0);
   assert(game.paint(1, 1));
   assert(game.paintOwners[0] === 1, 'opponent must be able to repaint a position');
-  for (let p = 2; p <= 15; p++) game.paint(0, p);
+  for (let p = 2; p <= 16; p++) game.paint(0, p);
   const result = game.finishPaintRound();
-  assert.deepStrictEqual(result.counts, [14, 1]);
+  assert.deepStrictEqual(result.counts, [15, 1]);
   assert.deepStrictEqual(result.scores, [1, 0]);
 }
 
@@ -33,7 +33,7 @@ const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0x100000000
   game.startIntersection('easy', 0);
   for (let i = 1; i <= 100; i++) {
     const dots = game.updateIntersection(i * 50);
-    for (const pair of dots) for (const value of pair) assert(value >= 0 && value <= 14);
+    for (const pair of dots) for (const value of pair) assert(value >= 0 && value <= 15);
   }
   const pair=game.intersection[1].dots;pair[0].position=7;pair[1].position=8.2;pair[0].direction=pair[1].direction=1;pair[0].lastAt=pair[1].lastAt=5000;
   game.updateIntersection(5001);
@@ -50,7 +50,7 @@ const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 0x100000000
   const pong = game.startPong('easy', 0);
   const served = game.pressPong(pong.server, pong.paddle[pong.server], 0);
   assert(served.serve);
-  const receiver=served.pong.receiver,entry=receiver===0?14:15;
+  const receiver=served.pong.receiver,entry=receiver===0?15:16;
   assert(Math.abs(game.globalPaddle(receiver,served.pong.paddle[receiver])-entry)>=5,'receiver paddle must stay five LEDs from the entry edge');
   for (let i = 1; i < 100 && game.scores[0] + game.scores[1] === 0; i++) game.updatePong(i * 100);
   assert(game.scores[0] + game.scores[1] === 1, 'a missed ball must award a point');

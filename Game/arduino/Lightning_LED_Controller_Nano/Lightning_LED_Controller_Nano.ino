@@ -1,18 +1,26 @@
 #include <Adafruit_NeoPixel.h>
 
-const uint8_t BLUE_DATA_PIN = 6;
-const uint8_t ORANGE_DATA_PIN = 7;
-const uint8_t BUTTONS = 15;
+const uint8_t DATA_PIN = 6;
+const uint8_t BUTTONS = 16;
 const uint8_t LEDS_PER_BUTTON = 1;
-const uint16_t LEDS_PER_PLAYER = BUTTONS * LEDS_PER_BUTTON;
-
-// Logical position 1..15 -> physical button index on each separate line.
-// Change these tables if either line is physically routed in a different order.
-const uint8_t BLUE_ORDER[BUTTONS]   = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14};
-const uint8_t ORANGE_ORDER[BUTTONS] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14};
-
-Adafruit_NeoPixel blueStrip(LEDS_PER_PLAYER, BLUE_DATA_PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel orangeStrip(LEDS_PER_PLAYER, ORANGE_DATA_PIN, NEO_GRB + NEO_KHZ800);
+const uint16_t LEDS_PER_PLAYER = BUTTONS;
+// One continuous WS2812 chain: player 1 = 0..15, player 2 = 16..31.
+Adafruit_NeoPixel physicalStrip(32, DATA_PIN, NEO_GRB + NEO_KHZ800);
+class LedPanel {
+ public:
+  LedPanel(uint8_t offset) : offset_(offset) {}
+  void clear() { for (uint8_t i = 0; i < BUTTONS; i++) physicalStrip.setPixelColor(offset_ + i, 0); }
+  void show() { physicalStrip.show(); }
+  uint32_t Color(uint8_t r, uint8_t g, uint8_t b) { return Adafruit_NeoPixel::Color(r, g, b); }
+  uint32_t getPixelColor(uint16_t i) { return physicalStrip.getPixelColor(offset_ + i); }
+  void setPixelColor(uint16_t i, uint32_t c) { if (i < BUTTONS) physicalStrip.setPixelColor(offset_ + i, c); }
+  void setPixelColor(uint16_t i, uint8_t r, uint8_t g, uint8_t b) { setPixelColor(i, Color(r, g, b)); }
+ private:
+  uint8_t offset_;
+};
+const uint8_t BLUE_ORDER[BUTTONS] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+const uint8_t ORANGE_ORDER[BUTTONS] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+LedPanel blueStrip(0), orangeStrip(16);
 String line;
 bool idleAnimation = true;
 uint8_t rainbowOffset = 0;
@@ -37,7 +45,7 @@ bool panelFlashActive[2] = {false, false};
 bool panelFlashGreen[2] = {false, false};
 unsigned long panelFlashStartedAt[2] = {0, 0};
 
-uint32_t rainbowColor(Adafruit_NeoPixel &strip, uint8_t value) {
+uint32_t rainbowColor(LedPanel &strip, uint8_t value) {
   value = 255 - value;
   if (value < 85) return strip.Color(255 - value * 3, 0, value * 3);
   if (value < 170) {
@@ -48,7 +56,7 @@ uint32_t rainbowColor(Adafruit_NeoPixel &strip, uint8_t value) {
   return strip.Color(value * 3, 255 - value * 3, 0);
 }
 
-uint32_t colorCode(Adafruit_NeoPixel &strip, char code) {
+uint32_t colorCode(LedPanel &strip, char code) {
   switch (code) {
     case '1': return strip.Color(255, 0, 0);     // clear red
     case '2': return strip.Color(0, 110, 255);   // blue
@@ -59,7 +67,7 @@ uint32_t colorCode(Adafruit_NeoPixel &strip, char code) {
   }
 }
 
-void setButton(Adafruit_NeoPixel &strip, const uint8_t *order, uint8_t position, uint32_t color) {
+void setButton(LedPanel &strip, const uint8_t *order, uint8_t position, uint32_t color) {
   if (position < 1 || position > BUTTONS) return;
   uint16_t first = order[position - 1] * LEDS_PER_BUTTON;
   for (uint8_t i = 0; i < LEDS_PER_BUTTON; i++) strip.setPixelColor(first + i, color);
@@ -91,7 +99,7 @@ void applyState(uint16_t blueMask, uint16_t orangeMask, uint8_t boostFlags,
   orangeStrip.show();
 }
 
-void applyColors(Adafruit_NeoPixel &strip, const uint8_t *order, const String &digits) {
+void applyColors(LedPanel &strip, const uint8_t *order, const String &digits) {
   strip.clear();
   for (uint8_t position = 1; position <= BUTTONS && position <= digits.length(); position++) {
     setButton(strip, order, position, colorCode(strip, digits.charAt(position - 1)));
@@ -99,7 +107,7 @@ void applyColors(Adafruit_NeoPixel &strip, const uint8_t *order, const String &d
   strip.show();
 }
 
-void applyPositionFeedback(uint8_t player, Adafruit_NeoPixel &strip, const uint8_t *order) {
+void applyPositionFeedback(uint8_t player, LedPanel &strip, const uint8_t *order) {
   if (!positionFlashActive[player]) return;
   unsigned long elapsed = millis() - positionFlashStartedAt[player];
   if (elapsed >= 420) { positionFlashActive[player] = false; return; }
@@ -126,7 +134,7 @@ void updatePanelFeedbacks() {
   unsigned long now = millis();
   for (uint8_t player = 0; player < 2; player++) {
     if (!panelFlashActive[player]) continue;
-    Adafruit_NeoPixel &strip = player == 0 ? blueStrip : orangeStrip;
+    LedPanel &strip = player == 0 ? blueStrip : orangeStrip;
     const uint8_t *order = player == 0 ? BLUE_ORDER : ORANGE_ORDER;
     unsigned long elapsed = now - panelFlashStartedAt[player];
     if (elapsed >= 560) { strip.clear(); strip.show(); panelFlashActive[player] = false; continue; }
@@ -141,7 +149,7 @@ void updatePanelFeedbacks() {
 }
 
 void showCatch(uint8_t player) {
-  Adafruit_NeoPixel &strip = player == 0 ? blueStrip : orangeStrip;
+  LedPanel &strip = player == 0 ? blueStrip : orangeStrip;
   const uint8_t *order = player == 0 ? BLUE_ORDER : ORANGE_ORDER;
   uint8_t index = (catchPhase[player] + ((millis() - catchStartedAt[player]) / max((uint16_t)1, catchInterval[player]))) % 4;
   if (lastCatchStep[player] == index && !positionFlashActive[player]) return;
@@ -161,7 +169,7 @@ void showCatch(uint8_t player) {
 }
 
 void showDots(uint8_t player, uint8_t first, uint8_t second) {
-  Adafruit_NeoPixel &strip = player == 0 ? blueStrip : orangeStrip;
+  LedPanel &strip = player == 0 ? blueStrip : orangeStrip;
   const uint8_t *order = player == 0 ? BLUE_ORDER : ORANGE_ORDER;
   strip.clear();
   uint32_t playerColor = player == 0 ? strip.Color(0, 110, 255) : strip.Color(255, 90, 0);
@@ -192,8 +200,8 @@ void applyPong(int ball, uint8_t bluePaddle, uint8_t orangePaddle, uint8_t serve
     uint8_t receiver = 1 - server;
     if (receiver == 0) setButton(blueStrip, BLUE_ORDER, bluePaddle, active ? blueStrip.Color(0, 255, 55) : blueStrip.Color(0, 110, 255));
     else setButton(orangeStrip, ORANGE_ORDER, orangePaddle, active ? orangeStrip.Color(0, 255, 55) : orangeStrip.Color(255, 90, 0));
-    if (ball < 15) setButton(blueStrip, BLUE_ORDER, ball + 1, blueStrip.Color(0, 110, 255));
-    else setButton(orangeStrip, ORANGE_ORDER, 30 - ball, orangeStrip.Color(255, 90, 0));
+    if (ball < 16) setButton(blueStrip, BLUE_ORDER, ball + 1, blueStrip.Color(0, 110, 255));
+    else setButton(orangeStrip, ORANGE_ORDER, 32 - ball, orangeStrip.Color(255, 90, 0));
   }
   blueStrip.show(); orangeStrip.show();
 }
@@ -209,7 +217,7 @@ void updateFades() {
   unsigned long now = millis();
   for (uint8_t player = 0; player < 2; player++) {
     if (!fadeActive[player] || (long)(now - fadeNextAt[player]) < 0) continue;
-    Adafruit_NeoPixel &strip = player == 0 ? blueStrip : orangeStrip;
+    LedPanel &strip = player == 0 ? blueStrip : orangeStrip;
     fadeNextAt[player] = now + fadeInterval[player];
     fadeStep[player]++;
     if (fadeStep[player] >= 20) {
@@ -274,7 +282,18 @@ void updateIdleAnimation() {
 void handleCommand(String command) {
   command.trim();
   if (command == "HELLO" || command == "PING") {
-    Serial.println("LIGHTNING_LED V5.5 READY");
+    Serial.println("LIGHTNING_LED V6 32 READY");
+    return;
+  }
+  if (command.startsWith("CAL ")) {
+    idleAnimation = false;
+    cancelDynamicEffects();
+    confirmPosition[0] = confirmPosition[1] = 0;
+    physicalStrip.clear();
+    int channel = command.substring(4).toInt();
+    if (channel >= 1 && channel <= 32) physicalStrip.setPixelColor(channel - 1, physicalStrip.Color(255, 255, 255));
+    physicalStrip.show();
+    Serial.println("OK CAL");
     return;
   }
   if (command == "MODE IDLE" || command == "MODE READY") {
@@ -301,16 +320,16 @@ void handleCommand(String command) {
   } else if (command.startsWith("CONFIRM ")) {
     uint8_t player = command.charAt(8) == 'B' ? 0 : 1;
     confirmPosition[player] = (uint8_t)command.substring(10).toInt();
-    Adafruit_NeoPixel &strip = player == 0 ? blueStrip : orangeStrip;
+    LedPanel &strip = player == 0 ? blueStrip : orangeStrip;
     const uint8_t *order = player == 0 ? BLUE_ORDER : ORANGE_ORDER;
     setButton(strip, order, confirmPosition[player], strip.Color(255, 255, 255));
     strip.show();
     Serial.println("OK CONFIRM");
   } else if (command.startsWith("ROUNDWIN ") && command.length() >= 10) {
     flashRoundWinner(command.charAt(9)); Serial.println("OK ROUNDWIN");
-  } else if (command.startsWith("OWNERS ") && command.length() >= 22) {
+  } else if (command.startsWith("OWNERS ") && command.length() >= 23) {
     confirmPosition[0] = confirmPosition[1] = 0;
-    applyOwners(command.substring(7, 22)); Serial.println("OK OWNERS");
+    applyOwners(command.substring(7, 23)); Serial.println("OK OWNERS");
   } else if (command.startsWith("CATCH2 ")) {
     unsigned int bp, bphase, bmask, op, ophase, omask, interval;
     char payload[48]; command.substring(7).toCharArray(payload, sizeof(payload));
@@ -343,21 +362,21 @@ void handleCommand(String command) {
   } else if (command.startsWith("FLASHPOS ")) {
     char side, result; unsigned int position; char payload[24]; command.substring(9).toCharArray(payload, sizeof(payload));
     if (sscanf(payload, "%c %u %c", &side, &position, &result) == 3) startPositionFeedback(side == 'B' ? 0 : 1, position, result == 'G');
-  } else if (command.startsWith("COLORS2 ") && command.length() >= 39) {
+  } else if (command.startsWith("COLORS2 ") && command.length() >= 41) {
     cancelDynamicEffects();
     confirmPosition[0] = confirmPosition[1] = 0;
-    applyColors(blueStrip, BLUE_ORDER, command.substring(8, 23));
-    applyColors(orangeStrip, ORANGE_ORDER, command.substring(24, 39));
+    applyColors(blueStrip, BLUE_ORDER, command.substring(8, 24));
+    applyColors(orangeStrip, ORANGE_ORDER, command.substring(25, 41));
     Serial.println("OK COLORS2");
-  } else if (command.startsWith("COLORS B ") && command.length() >= 24) {
+  } else if (command.startsWith("COLORS B ") && command.length() >= 25) {
     catchActive[0] = false; fadeActive[0] = false; panelFlashActive[0] = false; positionFlashActive[0] = false;
     confirmPosition[0] = 0;
-    applyColors(blueStrip, BLUE_ORDER, command.substring(9, 24));
+    applyColors(blueStrip, BLUE_ORDER, command.substring(9, 25));
     Serial.println("OK COLORS B");
-  } else if (command.startsWith("COLORS O ") && command.length() >= 24) {
+  } else if (command.startsWith("COLORS O ") && command.length() >= 25) {
     catchActive[1] = false; fadeActive[1] = false; panelFlashActive[1] = false; positionFlashActive[1] = false;
     confirmPosition[1] = 0;
-    applyColors(orangeStrip, ORANGE_ORDER, command.substring(9, 24));
+    applyColors(orangeStrip, ORANGE_ORDER, command.substring(9, 25));
     Serial.println("OK COLORS O");
   } else if (command.startsWith("FLASH B ")) {
     startPanelFeedback(0, command.endsWith("G"));
@@ -395,14 +414,11 @@ void handleCommand(String command) {
 
 void setup() {
   Serial.begin(115200);
-  blueStrip.begin();
-  orangeStrip.begin();
-  blueStrip.setBrightness(90);
-  orangeStrip.setBrightness(90);
+  physicalStrip.begin();
+  physicalStrip.setBrightness(90);
   applyState(0, 0, 0, 0, 0);
-  Serial.println("LIGHTNING_LED V5.5 READY");
-  testLines();
   idleAnimation = true;
+  Serial.println("LIGHTNING_LED V6 32 READY");
 }
 
 void loop() {

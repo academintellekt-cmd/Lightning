@@ -26,7 +26,8 @@ const catchSel={mode:'catchColor',variant:'score',difficulty:'medium',durationMi
 html=L.html(view({players:two,selection:catchSel}));
 assert(html.includes('data-lobby-variant="fill"')&&html.includes('data-lobby-variant="score"'));
 assert(html.includes('data-lobby-difficulty="veryHard" data-locked="1"'));
-assert(html.includes('Поймай цвет · На время · Средний · 2 мин'));
+assert(!html.includes('lobby-choice'),'no duplicate selection summary');
+assert(html.includes('data-lobby-duration="2"'),'selected duration remains available');
 assert(html.includes('Режим закрыт'),'locked mode hint');
 
 html=L.html(view({selection:LobbyOptions.defaultSelection('paint',[1,2,3])}));
@@ -62,11 +63,6 @@ assert(html.includes('data-action="records"')&&html.includes('Рекорды'),'
 html=L.html(view({overlay:{type:'rules',mode:'duel'}}));
 assert(html.includes('<ol><li>Загорается одна общая кнопка.</li>'),'rules window lists numbered steps');
 assert(!L.html(view({lang:'de',overlay:{type:'rules',mode:'duel'}})).includes('<ol>'),'languages without steps keep the one-line rules');
-{const app=require('fs').readFileSync(require('path').join(__dirname,'..','public','app.js'),'utf8');
-assert(app.includes('if(autoAssignControllers())showEnterCall(()=>{if(gatewaySessionActive)afterControllers()})'),'a started session shows the enter call');
-assert(app.includes('syncEnterCall();'),'render closes the enter call once the phase moves on');
-assert(app.includes('ENTER_CALL_MS=10000')&&app.includes('setTimeout(hideEnterCall,ENTER_CALL_MS)'),'enter call lasts 10 s');
-}
 {const app=require('fs').readFileSync(require('path').join(__dirname,'..','public','app.js'),'utf8');assert(app.includes("if(role==='control'&&cfg.strivex?.developmentMode){const log="),'StriveX status box only in development mode')}
 // Lobby profile window.
 {
@@ -91,4 +87,7 @@ assert(app.includes('ENTER_CALL_MS=10000')&&app.includes('setTimeout(hideEnterCa
   assert(main.includes("striveXSession.on('avatar-saved',payload=>emit('strivex-event',{type:'avatar_saved',...payload}))")&&main.includes("x?.type==='avatar_save'&&typeof striveXSession.saveAvatar==='function'"),'main forwards avatar saves and answers');
   assert(app.indexOf('StrivexCabinet.click(e.target,lobbyOverlay)')<app.indexOf("const idle=at('data-lobby-idle')")&&app.includes("lightning.striveXLobby({type:'avatar_save',uid:r.save.uid,avatar:r.save.avatar})"),'cabinet taps are handled first and saves go to the Gateway');
 }
+assert(!L.html(view({players:two})).includes('class="lobby-tap"'),'bracelet prompt hides once the pair is complete');
+assert(L.html(view({players:two.slice(0,1)})).includes('class="lobby-tap"'),'bracelet prompt returns after player removal');
+assert(L.html(view({})).includes('Уровни'),'right column uses Levels');
 console.log('lobby-view tests passed');
