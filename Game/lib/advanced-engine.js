@@ -1,4 +1,4 @@
-const FIELD_SIZE = 15;
+const FIELD_SIZE = 16;
 const CATCH_COLORS = ['orange', 'blue', 'green', 'pink'];
 
 class AdvancedGameEngine {
@@ -182,7 +182,7 @@ class AdvancedGameEngine {
     const center = field.heldPosition + 1;
     const hit = field.holdUntil > now && position === center;
     if (hit) this.scores[player]++;
-    return { accepted: true, hit, position: Math.max(1, Math.min(15, Math.round(center))), scores: [...this.scores] };
+    return { accepted: true, hit, position: Math.max(1, Math.min(16, Math.round(center))), scores: [...this.scores] };
   }
 
   pongTravelMs(difficulty) {
@@ -190,7 +190,7 @@ class AdvancedGameEngine {
   }
 
   globalPaddle(player, position) {
-    return player === 0 ? position - 1 : 30 - position;
+    return player === 0 ? position - 1 : 32 - position;
   }
 
   safePaddle(player, entryGlobal) {
@@ -201,13 +201,13 @@ class AdvancedGameEngine {
   }
 
   receiverEntry(player) {
-    return this.pongDifficulty === 'veryHard' ? (player === 0 ? [0, 14] : [15, 29]) : (player === 0 ? 14 : 15);
+    return this.pongDifficulty === 'veryHard' ? (player === 0 ? [0, 15] : [16, 31]) : (player === 0 ? 15 : 16);
   }
 
   newServe(server = Math.floor(this.random() * 2), now = Date.now()) {
     const paddle = [this.randomPosition(), this.randomPosition()];
     this.pong = {
-      server, receiver: 1 - server, paddle, serving: true, ball: server === 0 ? paddle[0] - 1 : 30 - paddle[1],
+      server, receiver: 1 - server, paddle, serving: true, ball: server === 0 ? paddle[0] - 1 : 32 - paddle[1],
       direction: 0, lastAt: now, travelMs: this.pongTravelMs(this.pongDifficulty), windowAt: 0, attack: false
     };
     return this.pong;
@@ -225,7 +225,7 @@ class AdvancedGameEngine {
     if (!p) return { accepted: false };
     if (p.serving) {
       if (player !== p.server || position !== p.paddle[player]) return { accepted: false };
-      const global = player === 0 ? position - 1 : 30 - position;
+      const global = player === 0 ? position - 1 : 32 - position;
       p.ball = global;
       if (position <= 4) p.direction = player === 0 ? 1 : -1;
       else if (position >= 12) p.direction = player === 0 ? -1 : 1;
@@ -238,9 +238,9 @@ class AdvancedGameEngine {
       return { accepted: true, serve: true, pong: p };
     }
     if (player !== p.receiver || position !== p.paddle[player]) return this.pongPoint(1 - player, player, position, now);
-    const globalPaddle = player === 0 ? position - 1 : 30 - position;
+    const globalPaddle = player === 0 ? position - 1 : 32 - position;
     const distanceLeds = Math.abs(p.ball - globalPaddle);
-    const distanceMs = distanceLeds * p.travelMs / 30;
+    const distanceMs = distanceLeds * p.travelMs / 32;
     // A hit is spatial, not a wide time window: the ball must actually be on
     // the paddle LED (one rendered LED of tolerance for the 35 ms update step).
     if (distanceLeds > 1.05) return this.pongPoint(1 - player, player, position, now);
@@ -263,23 +263,23 @@ class AdvancedGameEngine {
   updatePong(now = Date.now()) {
     const p = this.pong;
     if (!p || p.serving) return { point: false, pong: p };
-    p.ball += p.direction * (now - p.lastAt) * 30 / p.travelMs;
+    p.ball += p.direction * (now - p.lastAt) * 32 / p.travelMs;
     p.lastAt = now;
     if (this.pongDifficulty === 'veryHard') {
       if (!p.randomizedEntry) {
-        // The ball first leaves the hitter's 15-LED field through either edge,
+        // The ball first leaves the hitter's 16-LED field through either edge,
         // then appears at a random edge of the receiver's field.
-        const leftServerField = p.server === 0 ? (p.ball < 0 || p.ball >= 15) : (p.ball < 15 || p.ball > 29);
+        const leftServerField = p.server === 0 ? (p.ball < 0 || p.ball >= 16) : (p.ball < 16 || p.ball > 31);
         if (leftServerField) {
-          p.ball = p.receiver === 0 ? (this.random() < .5 ? 0 : 14) : (this.random() < .5 ? 15 : 29);
-          p.direction = p.receiver === 0 ? (p.ball === 0 ? 1 : -1) : (p.ball === 15 ? 1 : -1);
+          p.ball = p.receiver === 0 ? (this.random() < .5 ? 0 : 15) : (this.random() < .5 ? 16 : 31);
+          p.direction = p.receiver === 0 ? (p.ball === 0 ? 1 : -1) : (p.ball === 16 ? 1 : -1);
           p.randomizedEntry = true;
         }
       } else {
-        const missedReceiverField = p.receiver === 0 ? (p.ball < 0 || p.ball >= 15) : (p.ball < 15 || p.ball > 29);
+        const missedReceiverField = p.receiver === 0 ? (p.ball < 0 || p.ball >= 16) : (p.ball < 16 || p.ball > 31);
         if (missedReceiverField) return this.pongPoint(1 - p.receiver, p.receiver, p.paddle[p.receiver], now);
       }
-    } else if (p.ball < 0 || p.ball > 29) {
+    } else if (p.ball < 0 || p.ball > 31) {
       const loser = p.ball < 0 ? 0 : 1;
       return this.pongPoint(1 - loser, loser, p.paddle[loser], now);
     }

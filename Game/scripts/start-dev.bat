@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions
+set "ELECTRON_RUN_AS_NODE="
 title Lightning Attraction
 cd /d "%~dp0.."
 
@@ -11,15 +12,17 @@ call npm --version
 
 echo [2/5] Checking dependencies...
 if exist "node_modules\electron\cli.js" goto :RUNTIME
-call npm config set ignore-scripts false --location=project
-call npm install --include=dev
+call npm install --include=dev --ignore-scripts=false
 if errorlevel 1 goto :ERROR
 
 :RUNTIME
 echo [3/5] Checking Electron runtime...
-if exist "node_modules\electron\path.txt" goto :START
+if not exist "node_modules\electron\path.txt" goto :REPAIR_RUNTIME
+if exist "node_modules\electron\dist\electron.exe" goto :START
+
+:REPAIR_RUNTIME
 set ELECTRON_GET_USE_PROXY=1
-call npm rebuild electron --verbose
+call npm rebuild electron --ignore-scripts=false --verbose
 if errorlevel 1 goto :ERROR
 
 :START

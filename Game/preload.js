@@ -1,5 +1,6 @@
 const{contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('lightning',{
+  getTechnician:()=>ipcRenderer.invoke('tech-snapshot'),technicianCommand:x=>ipcRenderer.invoke('tech-command',x),onTechnician:cb=>ipcRenderer.on('tech-state',(_e,s)=>cb(s)),onTechnicianEnter:cb=>ipcRenderer.on('technician-enter',cb),gamepadFrame:x=>ipcRenderer.send('gamepad-frame',x),onMappedHit:cb=>ipcRenderer.on('mapped-hit',(_e,s)=>cb(s)),
   getConfig:()=>ipcRenderer.invoke('get-config'),
   publishState:s=>ipcRenderer.send('state-update',s),
   onState:cb=>ipcRenderer.on('state-update',(_e,s)=>cb(s)),

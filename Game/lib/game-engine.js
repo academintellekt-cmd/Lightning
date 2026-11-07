@@ -1,8 +1,8 @@
 class GameEngine{
  constructor(config,hooks={}){this.config=config;this.hooks=hooks;this.reset()}
  reset(){this.phase='idle';this.scores=[0,0];this.activeByPlayer=[new Set(),new Set()];this.active=new Set();this.round=0;this.mode=this.config.defaultGameMode||'classic'}
- randomSet(count,random=Math.random,excluded=new Set()){const p=Array.from({length:15},(_,i)=>i+1).filter(x=>!excluded.has(x));for(let i=p.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[p[i],p[j]]=[p[j],p[i]]}return new Set(p.slice(0,count))}
- count(random=Math.random){if(this.mode==='duel')return 1;const a=Math.max(1,this.config.activeButtonsMin),b=Math.min(15,Math.max(a,this.config.activeButtonsMax));return a+Math.floor(random()*(b-a+1))}
+ randomSet(count,random=Math.random,excluded=new Set()){const p=Array.from({length:16},(_,i)=>i+1).filter(x=>!excluded.has(x));for(let i=p.length-1;i>0;i--){const j=Math.floor(random()*(i+1));[p[i],p[j]]=[p[j],p[i]]}return new Set(p.slice(0,count))}
+ count(random=Math.random){if(this.mode==='duel')return 1;const a=Math.max(1,this.config.activeButtonsMin),b=Math.min(16,Math.max(a,this.config.activeButtonsMax));return a+Math.floor(random()*(b-a+1))}
  sync(){this.active=new Set([...this.activeByPlayer[0],...this.activeByPlayer[1]]);this.hooks.onLights?.(this.activeByPlayer.map(s=>[...s]))}
  makeRound(random=Math.random){const n=this.count(random);if(this.mode==='independent')this.activeByPlayer=[this.randomSet(n,random),this.randomSet(n,random)];else{const s=this.randomSet(n,random);this.activeByPlayer=[new Set(s),new Set(s)]}this.round++;this.sync();return[...this.activeByPlayer[0]]}
  start(now=Date.now(),mode=this.config.defaultGameMode||'classic'){this.phase='game';this.scores=[0,0];this.round=0;this.startedAt=now;this.mode=mode;return this.makeRound()}

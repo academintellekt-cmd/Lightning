@@ -6,6 +6,9 @@ import { defineConfig } from 'eslint/config';
 // Globals the pages share: the preload API and what the <script> tags in control.html/player.html define.
 const pageGlobals = {
   lightning: 'readonly',
+  LightningInput: 'readonly',
+  LightningPreview: 'readonly',
+  LightningTechnician: 'readonly',
   GameEngine: 'readonly',
   ColorGameEngine: 'readonly',
   AdvancedGameEngine: 'readonly',
@@ -47,5 +50,6 @@ export default defineConfig([
     rules: { 'no-unused-vars': ['error', { vars: 'local' }] },
   },
   // The file that declares a page global must not also see it as predefined.
+  { files: ['public/preview.js'], languageOptions: { globals: { LightningPreview: 'off' } } },
   { files: ['public/audio-manager.js'], languageOptions: { globals: { LightningAudio: 'off' } } },
 ]);

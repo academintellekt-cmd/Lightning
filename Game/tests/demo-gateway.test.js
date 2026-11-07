@@ -1,6 +1,13 @@
 const test=require('node:test');const assert=require('node:assert/strict');const{once}=require('events');
 const{DemoGateway}=require('../lib/demo-gateway');
 function collect(gw){const seen=[];for(const type of['lobby','scan','start-denied','unlock'])gw.on(type,payload=>seen.push({type,...payload}));return seen}
+test('777 opens technician settings, blocks guest start and supports close/block/unblock',()=>{
+  const gw=new DemoGateway(),seen=[];gw.on('technician',x=>seen.push(x));gw.tap('111');gw.tap('777');
+  assert.equal(seen.at(-1).staff.role,'technician');gw.tap('222');assert.equal(gw.players.length,0);
+  let reason;gw.on('start-denied',x=>reason=x.reason);gw.lobbyStart();assert.equal(reason,'blocked');
+  assert(gw.technicianCommand('block'));assert(gw.technicianCommand('close'));gw.tap('111');assert.equal(gw.players.length,0);
+  gw.tap('777');assert(gw.technicianCommand('unblock'));assert(gw.technicianCommand('close'));gw.tap('111');gw.tap('222');assert.equal(gw.players.length,2);
+});
 test('demo taps fill the lobby and refuse a third player',()=>{
   const gw=new DemoGateway();const seen=collect(gw);
   gw.tap('111');gw.tap('222');gw.tap('333');
