@@ -1,0 +1,34 @@
+@import url('./tokens.css');
+
+/* Lava Jump brand layer, adapted from lava-jump game-modules/lightning brand/lightning.css. Loaded last.
+   Chrome only: blue/orange stay as player colours (they match the physical buttons), puzzle colours keep their meaning. */
+html body { background: var(--bg) !important; color: var(--white); font-family: var(--font-body); }
+body .screen { background: var(--bg) !important; }
+body .brand { font-family: var(--font-display) !important; font-weight: 700 !important; font-style: normal !important; color: var(--white) !important; letter-spacing: 0 !important; text-shadow: none !important; }
+body :is(h1,h2,h3):not(:is(.lobby-screen,.cab-screen) *) { font-family: var(--font-display); font-weight: 700; letter-spacing: 0; text-shadow: none; }
+body :is(button,input,select) { font-family: var(--font-body); }
+
+body .btn { background: var(--gold) !important; border-color: var(--gold) !important; color: var(--ink) !important; border-radius: 0 !important; font-weight: 600; letter-spacing: 0; box-shadow: none !important; }
+body .btn:hover:not(:disabled) { background: #ef780d !important; }
+body :is(.btn.orange,.btn.back,.btn.game-quit,.btn.session-exit) { background: transparent !important; border-color: #64646b !important; color: var(--white) !important; }
+body :is(.duration-grid,.difficulty-grid) .btn.orange { background: var(--gold) !important; border-color: var(--gold) !important; color: var(--ink) !important; }
+body .mode-choice .btn,body .mode-choice .btn:hover:not(:disabled) { background: var(--surface) !important; border-color: var(--line) !important; color: var(--white) !important; }
+body .mode-grid { scrollbar-color: var(--gold) var(--surface); }
+body .help-btn { border-radius: 0; border-color: #64646b; background: transparent; color: var(--gold); }
+
+body :is(.card,.result,.help-panel,.control-game-status,.confirm-box) { border-radius: 0 !important; background: var(--surface) !important; box-shadow: none !important; }
+body .overlay { background: #1c1c1eeb !important; }
+body :is(.subtitle,.mode-name,.unlock-note) { color: var(--muted); }
+body :is(.timer,.control-game-timer) { color: var(--gold) !important; }
+body :is(.score,.timer,.result b,.control-game-timer) { font-family: var(--font-display); font-weight: 700; font-variant-numeric: tabular-nums; }
+body .x2 { text-shadow: none; }
+body :is(th,td) { border-bottom-color: var(--line); }
+
+body .rfid-box input { background: var(--surface); border-color: var(--line); border-radius: 0; }
+body .touch-keyboard button { background: var(--surface-2); border-color: var(--line); border-radius: 0; }
+body .language-widget { background: var(--surface); border-radius: 0; }
+body .language-widget.open { border-color: var(--line); box-shadow: none; }
+body .language-widget button { border-radius: 0; }
+body .language-widget button.selected { background: var(--surface-2); }
+
+body :is(button,a):focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
