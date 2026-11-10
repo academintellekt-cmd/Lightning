@@ -5,7 +5,7 @@
   let preview=null;
   let technicianState=await lightning.getTechnician();
   const technicianView=new LightningTechnician(lightning,role);technicianView.update(technicianState);
-  lightning.onTechnician(s=>{technicianState=s;technicianView.update(s)});
+  lightning.onTechnician(s=>{technicianState=s;technicianView.update(s);if(role==='control'&&queueShown()!==queueWasShown)render()});
   const gatewayMode=!!cfg.strivex?.enabled&&cfg.strivex.transport==='websocket';
   function applyOrientation(){const configured=role==='control'?(cfg.controlOrientation||'auto'):'landscape',orientation=configured==='auto'?(innerHeight>innerWidth?'portrait':'landscape'):configured;document.body.classList.toggle('portrait',orientation==='portrait');document.body.classList.toggle('landscape',orientation!=='portrait')}
   applyOrientation();window.addEventListener('resize',applyOrientation);
@@ -112,6 +112,7 @@
     lobbyPlayers:[],lobbyMax:2,sessionPlayers:[],
     lobbySelection:LobbyOptions.defaultSelection(cfg.defaultGameMode||'classic',cfg.durationOptionsMinutes||[1,2,3])};
   let lobbyOverlay=null,lobbyStarting=false,lobbyStartDenied='',lobbyOverlayTimer=null,lobbyIdleTimer=null;
+  let queue=null,queueSeen=false,queueTimer=null,queueNote='',queueNoteTimer=null,queueHost=null,queueHtml='',queueWasShown=false;
   let assigned={blue:null,orange:null},pendingUid='',pendingPlayer=0;
   let sessionCardUids=[null,null],gatewayUids=[],guestBasic=[false,false],guestSequenceHard=[false,false];
   const runtime={hits:[0,0],next:[cfg.modifiers?.everyHits||30,cfg.modifiers?.everyHits||30],
@@ -135,8 +136,18 @@
   function lobbyPlayersNow(){return gatewaySessionActive?state.sessionPlayers:state.lobbyPlayers}
   // Labels for records in the lobby profile window; catchColor records carry their variant.
   function lobbyRecordNames(){const t=T[lang],modes={};for(const m of LobbyOptions.LOBBY_MODES)modes[m]=t.modes[m][0];modes['catchColor:fill']=`${t.modes.catchColor[0]} · ${t.fillField}`;modes['catchColor:score']=`${t.modes.catchColor[0]} · ${t.timeAttack}`;return{modes,difficulties:t.difficulties,minute:t.minute}}
+  const QUEUE_ACTIONS={'queue-open':'queue_open','queue-done':'queue_done','queue-cancel':'queue_cancel'};
+  // Next-game queue strip. During a session it shows in every control phase; without one only when a seat is reserved, on the lobby. The lobby draws it in its own flow, other phases use the one persistent host element.
+  function queueShown(){return role==='control'&&!quitConfirm&&!technicianState.staff&&!technicianState.blocked&&!technicianState.calibration&&(gatewaySessionActive||state.phase==='lobby'&&queue?.state==='reserved')}
+  function queueView(){return{lang,state:queue?.state||'none',players:Array.isArray(queue?.players)?queue.players:[],max:queue?.max||2,remainingSec:queue?.expires_at==null?null:Math.max(0,Math.ceil((queue.expires_at-Date.now())/1000)),canOpen:gatewaySessionActive&&queueSeen&&(queue?.state||'none')==='none'}}
+  function queueBar(){return queueShown()?LightningLobby.queue({...queueView(),note:queueNote}):''}
+  function queueSync(){queueWasShown=queueShown();if(!queueHost)return;const html=state.phase==='lobby'?'':queueBar(),low=['countdown','game','gameover','results','leaderboard'].includes(state.phase);if(html!==queueHtml){queueHtml=html;queueHost.innerHTML=html}if(queueHost.classList.contains('low')!==low)queueHost.classList.toggle('low',low)}
+  function queueTick(){if(!queueShown())return;if(state.phase!=='lobby'){queueSync();return}const clock=app.querySelector('.lobby-queue-clock'),next=document.createElement('template');if(!clock)return;next.innerHTML=LightningLobby.queue({...queueView(),note:queueNote});const text=next.content.querySelector('.lobby-queue-clock')?.textContent;if(text!==undefined&&clock.textContent!==text)clock.textContent=text}
+  function setQueue(next){queue=next;clearTimeout(queueNoteTimer);queueNoteTimer=null;queueNote='';clearInterval(queueTimer);queueTimer=null;if(role==='control'&&queue?.expires_at!=null)queueTimer=setInterval(queueTick,1000);render()}
+  function setQueueNote(reason){clearTimeout(queueNoteTimer);queueNote=reason;queueNoteTimer=setTimeout(()=>{queueNote='';queueNoteTimer=null;render()},5000);render()}
+  function queueAction(a){if(QUEUE_ACTIONS[a]&&queueShown())lightning.striveXLobby({type:QUEUE_ACTIONS[a]})}
   function lobbyView(){const players=lobbyPlayersNow(),max=gatewaySessionActive?2:(state.lobbyMax||2),locks=profileLocks(players),selection=state.lobbySelection;
-    return{lang,t:T[lang],names:lobbyRecordNames(),players,max,selection,locks,options:LobbyOptions.modeOptions(selection.mode,cfg.durationOptionsMinutes||[1,2,3]),check:LobbyOptions.canStart(selection,players,max,locks),session:gatewaySessionActive,remainingSec:Math.ceil(gatewayRemainingMs/1000),connected:!!striveX.connected,overlay:lobbyOverlay,starting:lobbyStarting,startDenied:lobbyStartDenied,languageHtml:language(),testMode:cfg.interfaceTestMode}}
+    return{lang,t:T[lang],names:lobbyRecordNames(),players,max,selection,locks,options:LobbyOptions.modeOptions(selection.mode,cfg.durationOptionsMinutes||[1,2,3]),check:LobbyOptions.canStart(selection,players,max,locks),session:gatewaySessionActive,remainingSec:Math.ceil(gatewayRemainingMs/1000),connected:!!striveX.connected,overlay:lobbyOverlay,starting:lobbyStarting,startDenied:lobbyStartDenied,languageHtml:language(),testMode:cfg.interfaceTestMode,queue:queueShown()?{...queueView(),note:queueNote}:null}}
   function setLobbyOverlay(next,autoCloseMs=0){clearTimeout(lobbyOverlayTimer);lobbyOverlay=next;if(next&&autoCloseMs)lobbyOverlayTimer=setTimeout(()=>{lobbyOverlay=null;render()},autoCloseMs);render()}
   function clearLobbyIdle(){clearTimeout(lobbyIdleTimer);lobbyIdleTimer=null}
   function armLobbyIdle(){clearLobbyIdle();if(role!=='control'||state.phase!=='lobby'||gatewaySessionActive||!state.lobbyPlayers.length)return;
@@ -264,7 +275,7 @@
     return`<div class="touch-keyboard">${rows.map(row=>`<div>${[...row].map(k=>`<button data-key="${k}">${k}</button>`).join('')}</div>`).join('')}
       <div><button class="wide" data-key=" ">␠</button><button class="wide" data-key="backspace">⌫</button></div></div>`;
   }
-  function render(){preview?.update(state);
+  function render(){preview?.update(state);if(role==='control')queueSync();
     const t=T[lang],setup=['lobby','menu','assignBlue','assignOrange','scanP1','scanP2','namePlayer','modes','difficulty','variant','duration','records'];
     if(role==='player'&&setup.includes(state.phase)){app.innerHTML=`<section class="screen">${brand()}</section>`;return}
     if(state.phase==='lobby'){const scroll=[...app.querySelectorAll('.lobby-list')].map(e=>e.scrollTop);app.innerHTML=LightningLobby.html(lobbyView());app.querySelectorAll('.lobby-list').forEach((e,i)=>{e.scrollTop=scroll[i]||0})}
@@ -362,15 +373,16 @@
     if(!autoAssignControllers()){lightning.striveXFinal({type:'error',message:'two USB controllers not connected'});striveXActive=false;reset();return}
     striveXActive=true;striveX.sessionId=sessionId;state.mode=cfg.strivex.defaultMode||'classic';state.difficulty=cfg.strivex.defaultDifficulty||'easy';state.variant=cfg.strivex.defaultVariant||'score';state.durationMinutes=Number(cfg.strivex.durationMinutes)||1;state.remainingMs=state.durationMinutes*60000;state.names=[...cfg.offline.playerNames];countdown();
   }
-  function handleStriveXEvent(event){if(event.type==='unlock')startGatewaySession(event);else if(event.type==='lobby')onLobbyUpdate(event.players||[],event.max);else if(event.type==='profile'){if(lobbyOverlay?.type==='profile'&&lobbyOverlay.uid===event.uid){lobbyOverlay={...lobbyOverlay,state:event.profile?'ready':'error',data:event.profile||null,error:event.error||null};render()}}else if(event.type==='avatar_saved'){if(lobbyOverlay?.type==='profile'&&lobbyOverlay.uid===event.uid&&window.StrivexCabinet){lobbyOverlay=StrivexCabinet.saved(lobbyOverlay,event);render()}}else if(event.type==='scan'){if(event.state==='checking'){if(!lobbyOverlay||lobbyOverlay.type==='checking')setLobbyOverlay({type:'checking'},5000)}else if(event.state==='denied')setLobbyOverlay({type:'denied',reason:event.reason||'unregistered'},5000)}else if(event.type==='start_denied'){lobbyStarting=false;lobbyStartDenied=event.reason||'';render()}else if(event.type==='tick'&&gatewaySessionActive){gatewayRemainingMs=event.remainingMs;publish()}else if(event.type==='expired'){if(state.phase==='game')sessionExpirePending=true;else finishGatewaySession('timeout','paid_time_expired')}else if(event.type==='lock')finishGatewaySession('abandoned',event.reason||'gateway_lock');else if(event.type==='start')startStriveX(event.sessionId);else if(event.type==='deny'){clearTimers();striveXActive=false;striveXDeny=`StriveX: ${event.reason}`;state.phase='strivexDenied';publish();setTimeout(()=>{striveXDeny='';reset()},4000)}}
-  lightning.onStriveXEvent(handleStriveXEvent);lightning.onStriveXStatus(s=>{striveX={...striveX,...s};if(!striveX.connected&&!gatewaySessionActive){state.lobbyPlayers=[];lobbyStarting=false;if(lobbyOverlay?.type!=='rules')lobbyOverlay=null;clearLobbyIdle()}render()});lightning.onStriveXLog(item=>{if(item.event==='sent'&&item.line){striveX.outgoing=[...(striveX.outgoing||[]),item.line].slice(-20);render()}});
+  function handleStriveXEvent(event){if(event.type==='unlock')startGatewaySession(event);else if(event.type==='lobby')onLobbyUpdate(event.players||[],event.max);else if(event.type==='profile'){if(lobbyOverlay?.type==='profile'&&lobbyOverlay.uid===event.uid){lobbyOverlay={...lobbyOverlay,state:event.profile?'ready':'error',data:event.profile||null,error:event.error||null};render()}}else if(event.type==='avatar_saved'){if(lobbyOverlay?.type==='profile'&&lobbyOverlay.uid===event.uid&&window.StrivexCabinet){lobbyOverlay=StrivexCabinet.saved(lobbyOverlay,event);render()}}else if(event.type==='queue'){if(lobbyOverlay?.type==='checking'){clearTimeout(lobbyOverlayTimer);lobbyOverlay=null}queueSeen=true;setQueue(event.state==='none'?null:event)}else if(event.type==='scan'){const r=ScanRoute.scanRoute(event,{session:gatewaySessionActive,queue,overlayType:lobbyOverlay?.type});if(r?.note)setQueueNote(r.note);else if(r?.overlay)setLobbyOverlay(r.overlay,r.autoCloseMs)}else if(event.type==='start_denied'){lobbyStarting=false;lobbyStartDenied=event.reason||'';render()}else if(event.type==='tick'&&gatewaySessionActive){gatewayRemainingMs=event.remainingMs;publish()}else if(event.type==='expired'){if(state.phase==='game')sessionExpirePending=true;else finishGatewaySession('timeout','paid_time_expired')}else if(event.type==='lock')finishGatewaySession('abandoned',event.reason||'gateway_lock');else if(event.type==='start')startStriveX(event.sessionId);else if(event.type==='deny'){clearTimers();striveXActive=false;striveXDeny=`StriveX: ${event.reason}`;state.phase='strivexDenied';publish();setTimeout(()=>{striveXDeny='';reset()},4000)}}
+  if(role==='control'){queueHost=document.createElement('div');queueHost.className='control-queue';document.body.appendChild(queueHost);queueHost.addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b)queueAction(b.dataset.action)})}
+  lightning.onStriveXEvent(handleStriveXEvent);lightning.onStriveXStatus(s=>{striveX={...striveX,...s};if(!striveX.connected){queueSeen=false;setQueue(null)}if(!striveX.connected&&!gatewaySessionActive){state.lobbyPlayers=[];lobbyStarting=false;if(lobbyOverlay?.type!=='rules')lobbyOverlay=null;clearLobbyIdle()}render()});lightning.onStriveXLog(item=>{if(item.event==='sent'&&item.line){striveX.outgoing=[...(striveX.outgoing||[]),item.line].slice(-20);render()}});
   lightning.onTechnicianEnter(()=>{
     clearTimers();clearLobbyIdle();clearTimeout(lobbyOverlayTimer);lobbyOverlay=null;lobbyStarting=false;quitConfirm=false;
     if(gatewaySessionActive)finishGatewaySession('abandoned','technician');
     else{if(striveXActive)lightning.striveXFinal({type:'failed',meta:{reason:'technician'}});striveXActive=false;reset()}
   });
   lightning.onMappedHit(({player,pos})=>{if(accept)hit(player,pos)});
-  lightning.getStriveXSnapshot().then(s=>{striveX={...striveX,...s};if(s.demo&&Array.isArray(s.players)){state.lobbyPlayers=s.players;state.lobbyMax=s.max||2}if(!gatewayMode&&s.state==='running'&&s.sessionId)startStriveX(s.sessionId);render()});
+  lightning.getStriveXSnapshot().then(s=>{striveX={...striveX,...s};if(s.queue&&!queueSeen){queueSeen=true;setQueue(s.queue.state==='none'?null:s.queue)}if(s.demo&&Array.isArray(s.players)){state.lobbyPlayers=s.players;state.lobbyMax=s.max||2}if(!gatewayMode&&s.state==='running'&&s.sessionId)startStriveX(s.sessionId);render()});
   const classicEngineModes=new Set(['classic','replacement','independent','duel']);
   function testHit({player,slot}){
     if(state.phase==='ready'){hit(player,slot);return}
@@ -608,6 +620,7 @@
   }
   app.addEventListener('click',e=>{
     if(technicianState.staff||technicianState.blocked)return;
+    const qa=e.target.closest('[data-action]')?.dataset.action;if(QUEUE_ACTIONS[qa]){queueAction(qa);return}
     const demoCode=e.target.closest('[data-demo-code]')?.dataset.demoCode;if(demoCode&&cfg.interfaceTestMode){lightning.striveXLobby({type:'demo-tap',code:demoCode});return}
     if(state.phase==='lobby'&&role==='control'&&handleLobbyClick(e))return;
     const action=e.target.closest('[data-action]')?.dataset.action,mode=e.target.closest('[data-mode]')?.dataset.mode,help=e.target.closest('[data-help]')?.dataset.help,difficulty=e.target.closest('[data-difficulty]')?.dataset.difficulty,variant=e.target.closest('[data-variant]')?.dataset.variant,languageCode=e.target.closest('[data-language]')?.dataset.language,key=e.target.closest('[data-key]')?.dataset.key,duration=Number(e.target.closest('[data-duration]')?.dataset.duration),sx=e.target.closest('[data-strivex]')?.dataset.strivex;

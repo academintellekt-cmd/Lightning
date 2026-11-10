@@ -20,6 +20,7 @@ const pageGlobals = {
   SessionRecords: 'readonly',
   LightningLobby: 'readonly',
   SessionPoints: 'readonly',
+  ScanRoute: 'readonly',
 };
 
 export default defineConfig([
