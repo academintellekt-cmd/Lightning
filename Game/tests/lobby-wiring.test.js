@@ -3,7 +3,7 @@ const assert=require('assert');const fs=require('fs');const path=require('path')
 const root=path.join(__dirname,'..');
 const read=(...p)=>fs.readFileSync(path.join(root,...p),'utf8');
 const main=read('main.js'),app=read('public','app.js'),control=read('public','control.html'),player=read('public','player.html');
-const fn=n=>{const i=app.indexOf('function '+n+'(');return i<0?'':app.slice(i,app.indexOf('\n  function ',i+1)>0?app.indexOf('\n  function ',i+1):undefined)};
+const fn=n=>{const i=app.indexOf('function '+n+'(');if(i<0)throw new Error('no function '+n);return app.slice(i,app.indexOf('\n  function ',i+1)>0?app.indexOf('\n  function ',i+1):undefined)};
 
 assert(main.includes("striveXSession.on('queue',x=>{lastQueue=x;emit('strivex-event',{type:'queue',...x})})"),'main forwards queue events');
 assert(main.includes("x?.type==='queue_open'&&typeof striveXSession.queueOpen==='function'")&&main.includes("x?.type==='queue_done'&&typeof striveXSession.queueDone==='function'")&&main.includes("x?.type==='queue_cancel'&&typeof striveXSession.queueCancel==='function'"),'main sends the three queue commands');
@@ -19,6 +19,7 @@ assert(app.includes("'queue-open':'queue_open'")&&app.includes("'queue-done':'qu
 assert(fn('queueAction').includes('QUEUE_ACTIONS[a]')&&fn('queueAction').includes('lightning.striveXLobby({type:QUEUE_ACTIONS[a]})'),'queue buttons send their commands');
 assert(fn('queueAction').includes('queueShown()'),'no queue command is sent while the strip is hidden');
 assert(app.includes("queueHost.addEventListener('click'")&&(app.match(/queueHost\.addEventListener/g)||[]).length===1,'the strip outside the lobby uses one delegated click handler');
+assert(/if\(role==='control'\)\{queueHost=document\.createElement\('div'\)[^\n]*queueHost\.addEventListener\('click'/.test(app),'the strip host and its listener are created only on the control role');
 assert(app.includes('QUEUE_ACTIONS[qa]'),'the lobby strip sends its commands through the screen click handler');
 assert(fn('render').includes("role==='control'")&&fn('render').includes('queueSync()'),'every control render syncs the strip, including the early-return branches');
 assert(fn('render').indexOf('queueSync()')<fn('render').indexOf("if(state.phase==='lobby')"),'the strip is synced before any branch can return');
