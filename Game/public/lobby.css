@@ -132,17 +132,30 @@ body .lobby-screen.lobby-screen .language{position:absolute;top:0;right:0;left:a
 /* Outside the lobby (menus, game, countdown, post-round screens) the strip sits above the bottom button row (back / quit, up to ~95px tall), never over it. The button reset is wrapped in :where() as a whole so it has zero specificity and never outranks the lobby's own button classes. */
 .control-queue{position:absolute;left:4vw;right:4vw;bottom:calc(3vh + 104px);z-index:15;display:flex;flex-direction:column;gap:.8svh;color:var(--lb-text);font-family:'Involve','Inter','Segoe UI',Arial,sans-serif}
 :where(.control-queue button){font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+/* The strip is mounted in the (positioned) control body. On screens with nothing at the bottom edge (countdown, game, game over, results, leaders) it drops to the edge so it stays clear of the timer and mode name. */
+body[data-role=control]{position:relative}
+.control-queue.low{bottom:3vh}
 .control-queue .lobby-queue{background:linear-gradient(90deg,#4a2a10f2,#2b2016f2)}
 .control-queue .lobby-queue.none{background:none}
 .lobby-queue-note{padding:.8svh 2vw;border-radius:1.6vw;background:#2b2016;font-size:2.8vw;text-align:center}
 .lobby-queue.none:has(.lobby-queue-note){padding:1svh 2vw;border:1px solid var(--lb-orange);background:#2b2016}
-.control-queue-note{padding:1svh 2vw;border:1px solid var(--lb-orange);border-radius:2vw;background:#2b2016f2;font-size:2.8vw;text-align:center}
-/* Landscape (960x540 and wider): the vw sizes above are portrait-tuned, so size by height, keep the strip narrow and above the button row. */
+/* Landscape (960x540 and wider): the vw sizes above are portrait-tuned, so size by height. Outside the lobby the strip is narrow and above the button row; in the lobby grid it takes its own full-width row under the columns. */
+/* Portrait lobby with a queue strip: the strip takes 60-160px, so the lists and the duel cards go compact (cards become one row) instead of overflowing. */
+@media (orientation:portrait){
+.lobby-screen:has(.lobby-queue){--lb-row-height:min(6vw,3.6svh);--lb-heading-height:min(3.4vw,3svh)}
+.lobby-screen:has(.lobby-queue) :is(.lobby-slot,.lobby-slot-open){flex-direction:row;gap:2vw}
+.lobby-screen:has(.lobby-queue) .lobby-slot{padding:.6svh 1vw}
+.lobby-screen:has(.lobby-queue) .lobby-hex{width:min(8vw,5.4svh);height:min(8.8vw,5.9svh);flex:none}
+.lobby-screen:has(.lobby-queue) .lobby-plus{width:min(8vw,5svh);height:min(8vw,5svh);flex:none}
+.lobby-screen:has(.lobby-queue) .lobby-slot small{display:none}
+}
 @media (orientation:landscape){
 .control-queue{left:12vw;right:12vw;bottom:calc(3vh + 96px);gap:.8vh}
-.control-queue .lobby-queue{gap:.8vh;padding:1vh 1.6vw;border-radius:1.2vw}
-.control-queue .lobby-queue-info,.control-queue .lobby-queue-note,.control-queue .control-queue-note{font-size:clamp(14px,2.6vh,24px)}
-.control-queue .lobby-queue-slot{padding:.6vh 1vw;font-size:clamp(14px,2.6vh,24px)}
-.control-queue .lobby-queue-btn{min-height:max(44px,6.5vh);font-size:clamp(14px,2.8vh,26px);border-radius:1.2vw}
-.control-queue .lobby-queue.none .lobby-queue-btn{min-height:max(44px,6.5vh)}
+.control-queue.low{bottom:1.5vh}
+.lobby-screen>.lobby-queue{grid-column:1/-1;grid-row:4}
+:is(.control-queue,.lobby-screen) .lobby-queue{gap:.8vh;padding:1vh 1.6vw;border-radius:1.2vw}
+.control-queue .lobby-queue-info,.control-queue .lobby-queue-note,.lobby-screen .lobby-queue-info,.lobby-screen .lobby-queue-note{font-size:clamp(14px,2.6vh,24px)}
+.control-queue .lobby-queue-slot,.lobby-screen .lobby-queue-slot{padding:.6vh 1vw;font-size:clamp(14px,2.6vh,24px)}
+.control-queue .lobby-queue-btn,.lobby-screen .lobby-queue-btn{min-height:max(44px,6.5vh);font-size:clamp(14px,2.8vh,26px);border-radius:1.2vw}
+.control-queue .lobby-queue.none .lobby-queue-btn,.lobby-screen .lobby-queue.none .lobby-queue-btn{min-height:max(44px,6.5vh)}
 }

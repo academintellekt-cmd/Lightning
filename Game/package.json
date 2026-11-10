@@ -5,7 +5,7 @@
   "scripts": {
     "start": "electron .",
     "lint": "eslint .",
-    "check": "eslint . && node tests/engine.test.js && node tests/color-engine.test.js && node tests/advanced-engine.test.js && node tests/firmware-protocol.test.js && node tests/integration-guards.test.js && node tests/audio-manager.test.js && node tests/lobby-options.test.js && node tests/lobby-view.test.js && node tests/session-points.test.js &&node tests/strivex-protocol.test.js && node --test tests/strivex-session.test.js && node --test tests/demo-gateway.test.js && node --test tests/technician.test.js && node tests/session-records.test.js && node tests/cabinet.test.js",
+    "check": "eslint . && node tests/engine.test.js && node tests/color-engine.test.js && node tests/advanced-engine.test.js && node tests/firmware-protocol.test.js && node tests/integration-guards.test.js && node tests/audio-manager.test.js && node tests/lobby-options.test.js && node tests/lobby-view.test.js && node tests/session-points.test.js &&node tests/strivex-protocol.test.js && node --test tests/strivex-session.test.js && node --test tests/demo-gateway.test.js && node --test tests/technician.test.js && node --test tests/scan-route.test.js && node tests/lobby-wiring.test.js && node tests/session-records.test.js && node tests/cabinet.test.js",
     "build": "electron-builder --win nsis",
     "check:technician": "electron scripts/check-technician.js",
     "design": "node scripts/start-design.js",
